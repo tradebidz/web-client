@@ -4,36 +4,41 @@ import { loginSuccess } from '../../redux/slices/authSlice';
 import { useNavigate, Link } from 'react-router-dom';
 import { FaGoogle, FaFacebook } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { login as loginRequest } from '../../services/authService';
 
 const LoginPage = () => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const onSubmit = (data) => {
-    // Mock call API login successfully
-    console.log("Login Data:", data);
-    
-    // Mock token and user role to test middleware
-    // You can change role to 'SELLER' or 'ADMIN' to test menu
-    const mockResponse = {
-      accessToken: "mock_jwt_token_xyz",
-      user: {
-        id: 1,
+  const onSubmit = async (data) => {
+    try {
+      const response = await loginRequest({
         email: data.email,
-        name: "John Doe",
-        role: data.password.toUpperCase(), // Change role here to test layout
-      }
-    };
+        password: data.password,
+      });
 
-    dispatch(loginSuccess(mockResponse));
-    toast.success("Login successfully!");
-    navigate('/'); 
+      const accessToken = response.access_token || response.accessToken;
+      const refreshToken = response.refresh_token || response.refreshToken;
+      const user = response.user;
+
+      dispatch(loginSuccess({
+        accessToken,
+        refreshToken,
+        user,
+      }));
+
+      toast.success("Login successfully!");
+      navigate('/'); 
+    } catch (error) {
+      const message = error.response?.data?.message || "Login failed. Please try again.";
+      toast.error(message);
+    }
   };
 
   return (
     <div>
-      <h2 className="text-3xl font-bold text-text-main text-center mb-2">Welcome back!</h2>
+      <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">Welcome Back!</h2>
       <p className="text-text-light text-center mb-6">Login to continue auction</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
@@ -61,8 +66,12 @@ const LoginPage = () => {
           <Link to="/forgot-password" className="text-sm text-primary font-semibold hover:underline">Forgot password?</Link>
         </div>
 
-        <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary focus:outline-none">
-          Login
+        <button 
+          type="submit" 
+          disabled={isSubmitting}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary focus:outline-none disabled:opacity-70"
+        >
+          {isSubmitting ? 'Signing in...' : 'Login'}
         </button>
       </form>
 

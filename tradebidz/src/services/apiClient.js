@@ -1,10 +1,12 @@
 import axios from 'axios';
 import { store } from '../redux/store';
-import { logout, updateAccessToken } from '../redux/slices/authSlice';
+import { logout, updateAccessToken, updateRefreshToken } from '../redux/slices/authSlice';
+
+const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const refreshTokenURL = `${baseURL.replace(/\/$/, '')}${import.meta.env.VITE_API_REFRESH_TOKEN}`;
 
 const apiClient = axios.create({
-  // Change this URL to your NestJS backend URL
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api', 
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,7 +15,7 @@ const apiClient = axios.create({
 // Request Interceptor: Attach token to header
 apiClient.interceptors.request.use(
   (config) => {
-    const token = store.getState().auth.accessToken;
+    const token = store.getState().auth.accessToken || localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,33 +29,44 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
-    // If 401 (Unauthorized) and not tried retry yet
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
+      const refreshToken =
+        store.getState().auth.refreshToken || localStorage.getItem('refreshToken');
+
+      if (!refreshToken) {
+        store.dispatch(logout());
+        return Promise.reject(error);
+      }
+
       try {
-        // Assume API refresh token is /auth/refresh
-        // Note: Refresh token usually saved in httpOnly cookie, 
-        // if saved in localStorage, need to get it and send with.
-        const refreshToken = localStorage.getItem('refreshToken'); // Example if saved in local
-        
-        const response = await axios.post('http://localhost:3000/api/auth/refresh', { refreshToken });
-        
-        const { accessToken } = response.data;
-        
-        // Update Redux and LocalStorage
-        store.dispatch(updateAccessToken(accessToken));
-        
-        // Attach new token to old request and call again
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        const response = await axios.post(
+          refreshTokenURL,
+          { refresh_token: refreshToken, refreshToken },
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+
+        const newAccessToken = response.data?.access_token || response.data?.accessToken;
+        const newRefreshToken = response.data?.refresh_token || response.data?.refreshToken;
+
+        if (newAccessToken) {
+          store.dispatch(updateAccessToken(newAccessToken));
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        }
+
+        if (newRefreshToken) {
+          store.dispatch(updateRefreshToken(newRefreshToken));
+        }
+
         return apiClient(originalRequest);
       } catch (err) {
-        // If refresh also fails -> Logout
         store.dispatch(logout());
         return Promise.reject(err);
       }
     }
+
     return Promise.reject(error);
   }
 );

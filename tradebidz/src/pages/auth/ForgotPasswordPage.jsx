@@ -33,7 +33,7 @@ const ForgotPasswordPage = () => {
 
   return (
     <div>
-      <h2 className="text-3xl font-bold text-text-main text-center mb-2">
+      <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">
         Forgot Password
       </h2>
       <p className="text-text-light text-center mb-6">
