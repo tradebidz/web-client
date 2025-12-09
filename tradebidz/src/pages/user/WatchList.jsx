@@ -4,10 +4,12 @@ import LoadingModal from '../../components/common/LoadingModal';
 import { mockWatchList } from '../../utils/mockData';
 import { FaHeartBroken, FaHeart } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import ConfirmModal from '../../components/common/ConfirmModal';
 
 const WatchList = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, productId: null });
 
   useEffect(() => {
     // Simulate API fetch
@@ -18,12 +20,13 @@ const WatchList = () => {
   }, []);
 
   const handleRemove = (id) => {
-    // Mock remove logic
-    const confirmed = window.confirm("Remove this item from your Watchlist?");
-    if (confirmed) {
-      setProducts(products.filter(p => p.id !== id));
-      toast.success("Item removed from Watchlist");
-    }
+    setConfirmModal({ isOpen: true, productId: id });
+  };
+
+  const confirmRemove = () => {
+    setProducts(products.filter(p => p.id !== confirmModal.productId));
+    toast.success("Item removed from Watchlist");
+    setConfirmModal({ isOpen: false, productId: null });
   };
 
   return (
@@ -66,6 +69,18 @@ const WatchList = () => {
           </a>
         </div>
       )}
+
+      {/* Confirm Remove Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title="Remove from Watchlist"
+        message="Remove this item from your Watchlist?"
+        confirmText="Remove"
+        cancelText="Cancel"
+        variant="warning"
+        onConfirm={confirmRemove}
+        onCancel={() => setConfirmModal({ isOpen: false, productId: null })}
+      />
     </div>
   );
 };

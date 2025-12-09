@@ -75,7 +75,7 @@ const ProductDetail = () => {
           <div className="bg-neutral-light/30 py-2 rounded-xl mb-6">
             <div className="flex justify-between items-end mb-2">
               <span className="text-text-light font-medium">Current Price</span>
-              <span className="text-3xl font-bold text-primary">{formatCurrency(product.price)}</span>
+              <span className="text-3xl font-bold text-primary">{formatCurrency(product.currentPrice || product.price)}</span>
             </div>
             {product.buyNowPrice && (
               <div className="flex justify-between items-center text-sm">
@@ -102,7 +102,7 @@ const ProductDetail = () => {
                 <p className="text-xs text-blue-500 font-bold uppercase mb-1 flex items-center gap-1">
                   <FaStore /> Seller
                 </p>
-                <p className="font-medium">{product.seller.name} (Rate: {product.seller.rating}/10)</p>
+                <p className="font-medium">{product.seller?.name || product.seller?.fullName || 'Unknown'} (Rate: {product.seller?.rating || product.seller?.ratingScore || 0}/10)</p>
              </div>
 
              {/* Highest Bidder [cite: 55] */}
@@ -111,9 +111,9 @@ const ProductDetail = () => {
                   <FaUser /> Highest Bidder
                 </p>
                 <p className="font-medium">
-                  {product.currentBidder.name} 
+                  {product.currentBidder?.name || 'None'} 
                   <span className="text-xs font-normal text-text-light ml-2">
-                    (Score: {product.currentBidder.rating} points)
+                    (Score: {product.currentBidder?.rating || 0} points)
                   </span>
                 </p>
              </div>

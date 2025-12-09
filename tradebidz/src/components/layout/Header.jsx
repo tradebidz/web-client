@@ -118,7 +118,7 @@ const Header = () => {
                 className="flex items-center gap-2 hover:text-primary"
               >
                 <FaUserCircle className="text-2xl text-gray-400" />
-                <span className="max-w-[100px] truncate">{user.name || user.email}</span>
+                <span className="max-w-[100px] truncate">{user.fullName || user.name || user.email}</span>
               </button>
 
               {isDropdownOpen && (

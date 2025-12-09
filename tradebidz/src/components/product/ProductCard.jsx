@@ -24,7 +24,7 @@ const ProductCard = ({ product }) => {
 
         {/* Category Tag */}
         <span className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm">
-          {product.category}
+          {product.category?.name || product.category || 'Uncategorized'}
         </span>
       </div>
 

@@ -19,9 +19,9 @@ const AdminLayout = () => {
 
       {/* Sidebar */}
       <aside className="w-64 bg-gradient-to-br from-bg to-primary-light p-6 flex flex-col shadow-2xl sticky top-0 h-screen">
-        <div className="mb-8 flex items-center gap-2">
+        <Link to="/" className="mb-8 flex items-center gap-2 hover:scale-110 transition">
            <img src="/TradeBidz.png" alt="Logo"/>
-        </div>
+        </Link>
 
         <nav className="space-y-2 text-sm flex-1">
           <NavLink to="/admin" end className={({ isActive }) => isActive ? activeClass : inactiveClass}>

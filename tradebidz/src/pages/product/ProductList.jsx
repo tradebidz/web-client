@@ -15,7 +15,7 @@ const ProductList = () => {
   const sortParam = searchParams.get('sort') || 'default';
   const pageParam = parseInt(searchParams.get('page')) || 1;
 
-  // Mock Categories
+  // Mock Categories (should come from Redux or API)
   const categories = [
     { id: 'All', name: 'All Categories' },
     { id: 'Electronics', name: 'Electronics' },
@@ -33,7 +33,7 @@ const ProductList = () => {
       
       // 1. Filter by Category
       if (categoryParam !== 'All') {
-        data = data.filter(p => p.category === categoryParam);
+        data = data.filter(p => p.category?.name === categoryParam || p.category === categoryParam);
       }
 
       // 2. Sort Logic [cite: 30-31]

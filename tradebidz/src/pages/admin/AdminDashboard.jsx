@@ -1,14 +1,33 @@
+import { useState, useEffect } from 'react';
 import { FaGavel, FaUserPlus, FaMoneyBillWave, FaStore } from 'react-icons/fa';
 import { formatCurrency } from '../../utils/format';
+import { mockProducts, mockUsers, mockUpgradeRequests } from '../../utils/mockData';
 
 const AdminDashboard = () => {
-  // Mock Stats Data
-  const stats = [
-    { title: "Total Revenue", value: formatCurrency("19054"), icon: <FaMoneyBillWave />, color: "bg-green-500" },
-    { title: "New Auctions", value: "124", icon: <FaGavel />, color: "bg-blue-500" },
-    { title: "New Users", value: "45", icon: <FaUserPlus />, color: "bg-purple-500" },
-    { title: "Upgrade Requests", value: "3", icon: <FaStore />, color: "bg-orange-500" },
-  ];
+  const [stats, setStats] = useState([
+    { title: "Total Revenue", value: formatCurrency(19054), icon: <FaMoneyBillWave />, color: "bg-green-500" },
+    { title: "Active Auctions", value: "0", icon: <FaGavel />, color: "bg-blue-500" },
+    { title: "Total Users", value: "0", icon: <FaUserPlus />, color: "bg-purple-500" },
+    { title: "Upgrade Requests", value: "0", icon: <FaStore />, color: "bg-orange-500" },
+  ]);
+
+  useEffect(() => {
+    // Calculate stats from mockData
+    const activeProducts = mockProducts.filter(p => p.status === 'ACTIVE').length;
+    const totalUsers = mockUsers.length;
+    const pendingUpgradeRequests = mockUpgradeRequests.filter(req => req.status === 'PENDING').length;
+    
+    // Calculate total revenue (sum of currentPrice of sold products)
+    const soldProducts = mockProducts.filter(p => p.status === 'SOLD');
+    const totalRevenue = soldProducts.reduce((sum, p) => sum + (p.currentPrice || 0), 19054);
+
+    setStats([
+      { title: "Total Revenue", value: formatCurrency(totalRevenue), icon: <FaMoneyBillWave />, color: "bg-green-500" },
+      { title: "Active Auctions", value: activeProducts.toString(), icon: <FaGavel />, color: "bg-blue-500" },
+      { title: "Total Users", value: totalUsers.toString(), icon: <FaUserPlus />, color: "bg-purple-500" },
+      { title: "Upgrade Requests", value: pendingUpgradeRequests.toString(), icon: <FaStore />, color: "bg-orange-500" },
+    ]);
+  }, []);
 
   return (
     <div className="">
@@ -19,7 +38,7 @@ const AdminDashboard = () => {
         {stats.map((stat, index) => (
           <div
             key={index}
-            className="bg-white p-6 flex flex-col justify-between rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition"
+            className="bg-white p-4 flex flex-col justify-between rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition"
           >
             {/* Icon + Title */}
             <div className="flex items-center gap-4 mb-2">
@@ -30,7 +49,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* Value */}
-            <h3 className="text-2xl font-bold text-primary mt-1">
+            <h3 className="text-2xl text-center font-bold text-primary mt-1">
               {stat.value}
             </h3>
           </div>
@@ -65,18 +84,26 @@ const AdminDashboard = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
            <h3 className="font-bold text-lg mb-4">Recent Upgrade Requests</h3>
            <div className="space-y-4">
-              {[1, 2, 3].map((item) => (
-                  <div key={item} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              {mockUpgradeRequests
+                .filter(req => req.status === 'PENDING')
+                .slice(0, 3)
+                .map((request) => (
+                  <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">U{item}</div>
+                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+                            {request.user?.fullName?.charAt(0) || 'U'}
+                          </div>
                           <div>
-                              <p className="font-bold text-sm">User #{item}</p>
-                              <p className="text-xs text-gray-500">Wants to become Seller</p>
+                              <p className="font-bold text-sm">{request.user?.fullName || `User #${request.userId}`}</p>
+                              <p className="text-xs text-gray-500">{request.reason || 'Wants to become Seller'}</p>
                           </div>
                       </div>
                       <button className="text-xs bg-primary text-white px-3 py-1 rounded">Review</button>
                   </div>
               ))}
+              {mockUpgradeRequests.filter(req => req.status === 'PENDING').length === 0 && (
+                <p className="text-center text-gray-400 py-4">No pending upgrade requests</p>
+              )}
            </div>
         </div>
       </div>
