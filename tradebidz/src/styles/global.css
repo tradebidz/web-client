@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+@layer base {
+  :root {
+    /* Primary (from logo gradient) */
+    --color-primary-light: 76 211 245;  /* #4CD3F5 */
+    --color-primary: 25 167 206;        /* #19A7CE */
+    --color-primary-dark: 10 111 161;   /* #0A6FA1 */
+
+    /* Neutral / text colors similar to logo */
+    --color-text-main: 15 23 42;        /* #0F172A */
+    --color-text-light: 100 116 139;    /* #64748B */
+
+    /* Accent mint (optional) */
+    --color-accent: 94 243 214;         /* #5EF3D6 */
+
+    /* Background */
+    --color-bg: 245 250 255;            /* light blue-ish background */
+  }
+
+  body {
+    background-color: rgb(var(--color-bg));
+    color: rgb(var(--color-text-main));
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+.label-text { @apply block text-sm font-medium text-text-main mb-1; }
+.input-field { @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all; }
+.error-text { @apply text-red-500 text-xs mt-1; }
+.btn-primary { @apply px-6 py-2 bg-primary text-white font-semibold rounded-lg  transition-colors shadow-md; }
+.badge { @apply px-4 inline-flex py-2 rounded-full text-xs font-bold; }
+.fade-in { animation: fadeIn 0.3s ease-in-out; }
+.fade-in-reverse { animation: fadeInReverse 0.3s ease-in-out; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@layer utilities {
+  .animate-bounce-slight {
+    animation: bounce-slight 0.5s infinite alternate;
+  }
+}
+
+@keyframes bounce-slight {
+  from { transform: translateY(0); }
+  to { transform: translateY(-5px); }
+}
+
+@keyframes fadeIn { 
+  from { opacity: 0; transform: translateY(10px); } 
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInReverse {
+  from { opacity: 0; transform: translateY(-6px); } 
+  to { opacity: 1; transform: translateY(0); }
+}
