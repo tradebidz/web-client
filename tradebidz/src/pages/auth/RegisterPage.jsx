@@ -83,14 +83,14 @@ const RegisterPage = () => {
       
       // Get user info - we'll need to fetch it or decode from token
       // For now, we'll decode from token or fetch user
-      dispatch(loginSuccess({
-        accessToken,
-        refreshToken,
-        user: response.user || null,
-      }));
+      // dispatch(loginSuccess({
+      //   accessToken,
+      //   refreshToken,
+      //   user: response.user || null,
+      // }));
 
-      toast.success("Email verified successfully! You are now logged in.");
-      navigate('/');
+      toast.success("Email verified successfully! Let's login.");
+      navigate('/login');
     } catch (error) {
       const message = error.response?.data?.message || "Invalid OTP. Please try again.";
       toast.error(message);

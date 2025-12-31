@@ -36,10 +36,7 @@ const authSlice = createSlice({
           createdAt: providedUser.created_at,
           updatedAt: providedUser.updated_at,
         };
-    
-        console.log("User from backend:", derivedUser);
       }
-    
       // Case 2: Decode from token fallback
       else if (accessToken) {
         try {

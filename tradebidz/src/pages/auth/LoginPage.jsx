@@ -2,9 +2,10 @@ import { useForm } from 'react-hook-form';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../../redux/slices/authSlice';
 import { useNavigate, Link } from 'react-router-dom';
-import { FaGoogle, FaFacebook } from 'react-icons/fa';
+import { FaGoogle } from 'react-icons/fa';
+import { GoogleLogin } from '@react-oauth/google';
 import { toast } from 'react-toastify';
-import { login as loginRequest } from '../../services/authService';
+import { login as loginRequest, googleLogin } from '../../services/authService';
 
 const LoginPage = () => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
@@ -29,9 +30,37 @@ const LoginPage = () => {
       }));
 
       toast.success("Login successfully!");
-      navigate('/'); 
+      navigate('/');
     } catch (error) {
       const message = error.response?.data?.message || "Login failed. Please try again.";
+      toast.error(message);
+    }
+  };
+
+  const handleGoogleLoginSuccess = async (credentialResponse) => {
+    try {
+      if (!credentialResponse.credential) {
+        toast.error("Google login failed. No credential received.");
+        return;
+      }
+
+      const response = await googleLogin(credentialResponse.credential);
+
+      const accessToken = response.access_token || response.accessToken;
+      const refreshToken = response.refresh_token || response.refreshToken;
+      const user = response.user;
+
+      dispatch(loginSuccess({
+        accessToken,
+        refreshToken,
+        user,
+      }));
+
+      toast.success("Logged in with Google successfully!");
+      navigate('/');
+    } catch (error) {
+      console.error("Google login error:", error);
+      const message = error.response?.data?.message || "Google login failed.";
       toast.error(message);
     }
   };
@@ -44,9 +73,9 @@ const LoginPage = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <div>
           <label className="block text-sm font-medium text-text-main">Email</label>
-          <input 
+          <input
             {...register("email", { required: "Email is required", pattern: /^\S+@\S+$/i })}
-            type="email" 
+            type="email"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
           />
           {errors.email && <span className="text-red-500 text-xs">{errors.email.message}</span>}
@@ -54,9 +83,9 @@ const LoginPage = () => {
 
         <div>
           <label className="block text-sm font-medium text-text-main">Password</label>
-          <input 
+          <input
             {...register("password", { required: "Password is required" })}
-            type="password" 
+            type="password"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
           />
           {errors.password && <span className="text-red-500 text-xs">{errors.password.message}</span>}
@@ -66,8 +95,8 @@ const LoginPage = () => {
           <Link to="/forgot-password" className="text-sm text-primary font-semibold hover:underline">Forgot password?</Link>
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={isSubmitting}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary focus:outline-none disabled:opacity-70"
         >
@@ -85,13 +114,17 @@ const LoginPage = () => {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <button className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-            <FaGoogle className="text-red-500 text-lg" />
-          </button>
-          <button className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-            <FaFacebook className="text-blue-600 text-lg" />
-          </button>
+        <div className="mt-6 flex justify-center">
+          <GoogleLogin
+            onSuccess={handleGoogleLoginSuccess}
+            onError={() => {
+              toast.error('Google Login Failed');
+            }}
+            useOneTap
+            shape="rectangular"
+            theme="outline"
+            width="100%"
+          />
         </div>
       </div>
 
