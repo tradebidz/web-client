@@ -3,7 +3,7 @@ import { store } from '../redux/store';
 import { logout, updateAccessToken, updateRefreshToken } from '../redux/slices/authSlice';
 
 const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-const refreshTokenURL = `${baseURL.replace(/\/$/, '')}${import.meta.env.VITE_API_REFRESH_TOKEN}`;
+const refreshTokenURL = `${baseURL.replace(/\/$/, '')}/auth/refresh`;
 
 const apiClient = axios.create({
   baseURL,
