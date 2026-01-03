@@ -1,120 +1,153 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import LoadingModal from '../../components/common/LoadingModal';
-import { mockMyBids } from '../../utils/mockData';
 import { formatCurrency, formatTimeLeft } from '../../utils/format';
 import { FaGavel, FaCheckCircle, FaExclamationCircle, FaExternalLinkAlt } from 'react-icons/fa';
+import { getActiveBids } from '../../services/userService';
+import { useSelector } from 'react-redux';
+import { toast } from 'react-toastify';
 
 const MyBidding = () => {
-  const [bids, setBids] = useState([]);
+  // Đổi tên state thành products cho đúng ngữ nghĩa với API mới, 
+  // nhưng vẫn giữ logic cũ để tương thích nếu API trả về mixed
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isAuthenticated, user } = useSelector((state) => state.auth); // Lấy thêm user để so sánh winner
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      setBids(mockMyBids);
-      setLoading(false);
-    }, 600);
-  }, []);
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchActiveBids = async () => {
+      try {
+        setLoading(true);
+        const data = await getActiveBids();
+        setItems(data || []);
+      } catch (error) {
+        console.error('Error fetching active bids:', error);
+        toast.error('Failed to load active bids');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActiveBids();
+  }, [isAuthenticated, navigate]);
 
   return (
-    <div className="container mx-auto">
-      <LoadingModal isOpen={loading} text="Loading your bids..." />
+    <div className="container mx-auto px-4 py-8">
+      <LoadingModal isOpen={loading} text="Đang tải..." />
 
       <div className="mb-8 border-b pb-4">
         <h1 className="text-3xl font-bold text-text-main flex items-center gap-3">
-          <FaGavel className="text-primary" /> My Bidding
+          <FaGavel className="text-primary" /> Đang đấu giá
         </h1>
         <p className="text-text-light mt-2">
-          Products you are currently bidding on.
+          Các sản phẩm bạn đang tham gia đấu giá.
         </p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {bids.length > 0 ? (
+        {items.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 text-text-light text-xs uppercase font-semibold">
                 <tr>
-                  <th className="p-4">Product</th>
-                  <th className="p-4">My Max Bid</th>
-                  <th className="p-4">Current Price</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Time Left</th>
-                  <th className="p-4 text-center">Action</th>
+                  <th className="p-4">Sản phẩm</th>
+                  <th className="p-4">Giá hiện tại</th>
+                  <th className="p-4">Trạng thái</th>
+                  <th className="p-4">Người giữ giá cao nhất</th>
+                  <th className="p-4">Thời gian còn lại</th>
+                  <th className="p-4 text-center">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm">
-                {bids.map((bid) => (
-                  <tr key={bid.id} className="hover:bg-blue-50/30 transition-colors">
-                    {/* Product Info */}
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <img 
-                          src={bid.image} 
-                          alt={bid.productName} 
-                          className="w-12 h-12 rounded object-cover border border-gray-200" 
-                        />
-                        <div>
-                          <Link to={`/product/${bid.productId}`} className="font-medium text-text-main hover:text-primary line-clamp-1">
-                            {bid.productName}
-                          </Link>
-                          <span className="text-xs text-text-light">Seller: {bid.seller}</span>
+                {items.map((item) => {
+                  // Helper để lấy dữ liệu dù nó ở root (API mới) hay lồng trong product (API cũ)
+                  const product = item.product || item;
+                  const sellerName = product.seller?.full_name || 'Unknown';
+                  const isWinning = product.winner_id === user?.id; // Check based on logged in user ID
+
+                  return (
+                    <tr key={item.id} className="hover:bg-blue-50/30 transition-colors">
+                      {/* Product Info */}
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={product.thumbnail || product.product_images?.[0]?.url || '/placeholder.png'}
+                            alt={product.name}
+                            className="w-12 h-12 rounded object-cover border border-gray-200"
+                          />
+                          <div>
+                            <Link to={`/product/${product.id}`} className="font-medium text-text-main hover:text-primary line-clamp-1 max-w-[200px]">
+                              {product.name}
+                            </Link>
+                            {/* --- FIX LỖI CRASH Ở ĐÂY: Truy cập sâu vào .full_name --- */}
+                            <span className="text-xs text-text-light block">
+                              Người bán: {sellerName}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* My Bid */}
-                    <td className="p-4 font-medium text-gray-600">
-                      {formatCurrency(bid.myBid)}
-                    </td>
+                      {/* Current Price */}
+                      <td className="p-4 font-bold text-primary">
+                        {formatCurrency(product.current_price)}
+                      </td>
 
-                    {/* Current Price */}
-                    <td className="p-4 font-bold text-primary">
-                      {formatCurrency(bid.currentPrice)}
-                    </td>
+                      {/* Status (Outbid / Leading) */}
+                      <td className="p-4">
+                        {isWinning ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">
+                            <FaCheckCircle /> Đang dẫn đầu
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold animate-pulse">
+                            <FaExclamationCircle /> Bị vượt giá
+                          </span>
+                        )}
+                      </td>
 
-                    {/* Status [cite: 88, 101] */}
-                    <td className="p-4">
-                      {bid.isWinning ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold">
-                          <FaCheckCircle /> Leading
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-700 text-xs font-bold animate-pulse">
-                          <FaExclamationCircle /> Outbid
-                        </span>
-                      )}
-                    </td>
+                      {/* Highest Bidder Name */}
+                      <td className="p-4 text-gray-600 font-medium">
+                        {product.current_bidder_name || '---'}
+                        {isWinning && <span className="text-xs text-green-600 ml-1">(Bạn)</span>}
+                      </td>
 
-                    {/* Time Left */}
-                    <td className="p-4 text-gray-500">
-                      {formatTimeLeft(bid.endTime)}
-                    </td>
+                      {/* Time Left */}
+                      <td className="p-4 text-gray-500">
+                        {product.end_time ? formatTimeLeft(product.end_time) : 'N/A'}
+                      </td>
 
-                    {/* Action */}
-                    <td className="p-4 text-center">
-                      <Link 
-                        to={`/product/${bid.productId}`}
-                        className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
-                          bid.isWinning 
-                            ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' 
-                            : 'bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30'
-                        }`}
-                        title="View Details"
-                      >
-                        <FaExternalLinkAlt className="text-xs" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                      {/* Action */}
+                      <td className="p-4 text-center">
+                        <Link
+                          to={`/product/${product.id}`}
+                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isWinning
+                              ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                              : 'bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30'
+                            }`}
+                          title={isWinning ? "Xem chi tiết" : "Đấu giá ngay!"}
+                        >
+                          <FaExternalLinkAlt className="text-xs" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         ) : (
           <div className="text-center py-16">
             <FaGavel className="mx-auto text-4xl text-gray-200 mb-4" />
-            <p className="text-gray-500">You haven't placed any bids yet.</p>
+            <p className="text-gray-500">Bạn chưa tham gia đấu giá sản phẩm nào.</p>
+            <Link to="/products" className="mt-4 inline-block text-primary hover:underline">
+              Tìm kiếm sản phẩm
+            </Link>
           </div>
         )}
       </div>
