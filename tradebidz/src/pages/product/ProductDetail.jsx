@@ -1,156 +1,479 @@
-import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { FaGavel, FaClock, FaUser, FaStore, FaHeart, FaHistory } from 'react-icons/fa';
-import { productDetailMock, mockProducts } from '../../utils/mockData';
 import { formatCurrency, formatTimeLeft } from '../../utils/format';
 import ProductCard from '../../components/product/ProductCard';
 import { toast } from 'react-toastify';
 import LoadingModal from '../../components/common/LoadingModal';
+import ConfirmModal from '../../components/common/ConfirmModal';
+import BidModal from '../../components/product/BidModal';
+import { getProductById, getBidHistory, getTopEnding, getSellerBids, banBidder, createQuestion, answerQuestion } from '../../services/productService';
+import { buyNow } from '../../services/biddingService';
+import { toggleWatchlist, getMyWatchlist } from '../../services/userService';
+import { useWebSocket } from '../../hooks/useWebSocket';
+import { useSelector, useDispatch } from 'react-redux';
+import { setCurrentProduct, updateProduct } from '../../redux/slices/productSlice';
+import { setProductBids } from '../../redux/slices/bidSlice';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [product, setProduct] = useState(null);
   const [activeImage, setActiveImage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [bidHistory, setBidHistory] = useState([]);
+  const [showBidModal, setShowBidModal] = useState(false);
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [questionContent, setQuestionContent] = useState('');
+  const [answerContent, setAnswerContent] = useState('');
+  const [activeQuestionId, setActiveQuestionId] = useState(null); // Which question is being answered
+  const [bidderToBan, setBidderToBan] = useState(null); // { bidderId, name, productId }
+  const [banReason, setBanReason] = useState('');
+  const [isBanModalOpen, setIsBanModalOpen] = useState(false);
+  const [isBuyNowModalOpen, setIsBuyNowModalOpen] = useState(false);
+  const [buyingNow, setBuyingNow] = useState(false);
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
+  const user = useSelector((state) => state.auth.user);
 
-  // Simulation: Fetch data
+  // Subscribe to WebSocket updates for this product
+  const { isConnected } = useWebSocket(parseInt(id));
+
+  // Fetch product data
   useEffect(() => {
-    // In real app: await apiClient.get(`/products/${id}`)
-    setTimeout(() => {
-      setProduct(productDetailMock);
-      setActiveImage(productDetailMock.images[0]);
-      setLoading(false);
-    }, 500);
-  }, [id]);
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const productData = await getProductById(id);
+        setProduct(productData);
+
+        // Set first image as active
+        if (productData?.product_images?.length > 0) {
+          const primaryImg = productData.product_images.find(img => img.is_primary) || productData.product_images[0];
+          setActiveImage(primaryImg.url);
+        } else if (productData?.thumbnail) {
+          setActiveImage(productData.thumbnail);
+        } else {
+          setActiveImage('/placeholder.png');
+        }
+
+        // Update Redux
+        dispatch(setCurrentProduct(productData));
+
+        // Fetch bid history (check if seller for full history)
+        let history = [];
+        // Note: 'user' from outer scope might be stale in closure if not in dependency, 
+        // but 'fetchProduct' is defined inside useEffect so it captures current 'user'.
+        // However, we need to verify if user.id matches seller_id
+        if (isAuthenticated && user?.id === productData.seller_id) {
+          try {
+            history = await getSellerBids(id);
+          } catch (e) {
+            console.error("Failed to fetch seller bids", e);
+            history = await getBidHistory(id);
+          }
+        } else {
+          history = await getBidHistory(id);
+        }
+
+        setBidHistory(history || []);
+        dispatch(setProductBids(history || []));
+
+        // Check watchlist status if authenticated
+        if (isAuthenticated) {
+          try {
+            const watchlist = await getMyWatchlist();
+            const inWatchlist = watchlist.some(item =>
+              item.productId === parseInt(id) || item.product?.id === parseInt(id)
+            );
+            setIsInWatchlist(inWatchlist);
+          } catch (error) {
+            console.error('Error checking watchlist:', error);
+          }
+        }
+
+        // Fetch related products (top ending)
+        try {
+          const related = await getTopEnding();
+          setRelatedProducts(related?.slice(0, 5) || []);
+        } catch (error) {
+          console.error('Error fetching related products:', error);
+        }
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        toast.error('Lỗi khi tải thông tin sản phẩm');
+        navigate('/products');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchProduct();
+    }
+  }, [id, isAuthenticated, dispatch, navigate, user]);
+
+  // Listen to Redux updates from WebSocket
+  const currentProduct = useSelector((state) => state.products.currentProduct);
+  const prevBidCountRef = useRef(null);
+
+  useEffect(() => {
+    if (currentProduct && currentProduct.id === parseInt(id)) {
+      // Check for new bids to show toast
+      if (prevBidCountRef.current !== null && currentProduct.bid_count > prevBidCountRef.current) {
+        toast.info(`Có giá mới! Giá hiện tại: ${formatCurrency(currentProduct.current_price || currentProduct.start_price)}`);
+      }
+      prevBidCountRef.current = currentProduct.bid_count || 0;
+
+      setProduct(currentProduct);
+      // Update active image if product images changed (Schema: product_images relation)
+      if (currentProduct.product_images && currentProduct.product_images.length > 0) {
+        const primaryImg = currentProduct.product_images.find(img => img.is_primary) || currentProduct.product_images[0];
+        if (primaryImg?.url && primaryImg.url !== activeImage) {
+          setActiveImage(primaryImg.url);
+        }
+      } else if (currentProduct.thumbnail && currentProduct.thumbnail !== activeImage) {
+        setActiveImage(currentProduct.thumbnail);
+      }
+    }
+    // eslint-disable-next-line
+  }, [currentProduct, id]);
 
   const handlePlaceBid = () => {
-    // Logic: Check authentication & rating > 80% [cite: 83]
-    toast.info("This feature requires login and a rating score > 80%.");
+    if (!isAuthenticated) {
+      toast.info('Vui lòng đăng nhập để đấu giá');
+      // navigate('/login');
+      return;
+    }
+
+    if (user && (user.rating_score || user.ratingScore || 0) < 80) {
+      toast.error('Bạn cần điểm tín nhiệm từ 80% trở lên để được phép đấu giá');
+      return;
+    }
+
+    setShowBidModal(true);
   };
 
-  if (loading) return <LoadingModal isOpen={true} text="Loading..."/>;
-  if (!product) return <div className="p-8 text-center text-red-500">Product not found</div>;
+  const handleToggleWatchlist = async () => {
+    if (!isAuthenticated) {
+      toast.info('Vui lòng đăng nhập để theo dõi');
+      // navigate('/login');
+      return;
+    }
+
+    try {
+      await toggleWatchlist(parseInt(id));
+      setIsInWatchlist(!isInWatchlist);
+      toast.success(isInWatchlist ? 'Đã bỏ theo dõi' : 'Đã thêm vào danh sách theo dõi');
+    } catch (error) {
+      toast.error('Lỗi cập nhật danh sách theo dõi');
+    }
+  };
+
+  const handleBuyNow = async () => {
+    if (!isAuthenticated) {
+      toast.info('Vui lòng đăng nhập để mua ngay');
+      return;
+    }
+
+    try {
+      setBuyingNow(true);
+      await buyNow(id);
+      toast.success('Mua ngay thành công! Vui lòng kiểm tra đơn hàng.');
+      setIsBuyNowModalOpen(false);
+
+      // Refresh product data
+      const productData = await getProductById(id);
+      setProduct(productData);
+      dispatch(setCurrentProduct(productData));
+
+    } catch (error) {
+      toast.error(error.response?.data || 'Lỗi khi mua ngay');
+    } finally {
+      setBuyingNow(false);
+    }
+  };
+
+  // --- Q&A Handlers ---
+  const handleCreateQuestion = async (e) => {
+    e.preventDefault();
+    if (!questionContent.trim()) return;
+    try {
+      await createQuestion(id, questionContent);
+      toast.success('Gửi câu hỏi thành công!');
+      setQuestionContent('');
+      // Reload product to see new question
+      const updatedProduct = await getProductById(id);
+      setProduct(updatedProduct);
+    } catch (error) {
+      toast.error('Gửi câu hỏi thất bại');
+    }
+  };
+
+  const handleAnswerQuestion = async (e, qId) => {
+    e.preventDefault();
+    if (!answerContent.trim()) return;
+    try {
+      await answerQuestion(qId, answerContent);
+      toast.success('Gửi câu trả lời thành công!');
+      setAnswerContent('');
+      setActiveQuestionId(null);
+      // Reload product
+      const updatedProduct = await getProductById(id);
+      setProduct(updatedProduct);
+    } catch (error) {
+      toast.error('Gửi câu trả lời thất bại');
+    }
+  };
+
+  // --- Ban Handler ---
+  const openBanModal = (bid) => {
+    setBidderToBan(bid);
+    setIsBanModalOpen(true);
+  };
+
+  const handleBanBidder = async () => {
+    if (!bidderToBan || !banReason.trim()) return;
+    try {
+      await banBidder(id, {
+        bidderId: bidderToBan.bidder_id, // ensure bidder_id is present from getSellerBids
+        reason: banReason
+      });
+      toast.success(`Đã từ chối người mua ${bidderToBan.bidder_name}`);
+      setIsBanModalOpen(false);
+      setBidderToBan(null);
+      setBanReason('');
+
+      // Refresh bids
+      const history = await getSellerBids(id);
+      setBidHistory(history || []);
+
+    } catch (error) {
+      toast.error('Lỗi khi từ chối người mua');
+    }
+  };
+
+  const isSeller = isAuthenticated && user?.id === product?.seller_id;
+
+  if (loading) return <LoadingModal isOpen={true} text="Đang tải..." />;
+  if (!product) return <div className="p-8 text-center text-red-500">Không tìm thấy sản phẩm</div>;
+
+  const currentPrice = parseFloat(product.current_price > 0 ? product.current_price : product.start_price);
+  const buyNowPrice = product.buy_now_price ? parseFloat(product.buy_now_price) : null;
+  const stepPrice = parseFloat(product.step_price);
+
+  // Xử lý Seller Info (Schema: relation users)
+  // Backend thường map users_products_seller_idTousers -> seller
+  const sellerName = product.users_products_seller_idTousers?.full_name || 'Không rõ';
+  const sellerRating = product.users_products_seller_idTousers?.rating_score || 0;
+
+  // Xử lý Winner/Bidder
+  const currentBidderName = product.winner?.full_name ||
+    product.bids?.[0]?.users?.full_name ||
+    'Chưa có';
 
   return (
     <div className="container mx-auto pb-12 fade-in">
       {/* Breadcrumb */}
       <nav className="text-sm text-text-light mb-6 flex gap-2">
-        <Link to="/" className="hover:text-primary">Home</Link> / 
-        <Link to="/products" className="hover:text-primary">Products</Link> / 
+        <Link to="/" className="hover:text-primary">Trang chủ</Link> /
+        <Link to="/products" className="hover:text-primary">Sản phẩm</Link> /
         <span className="text-text-main font-semibold">{product.name}</span>
       </nav>
 
       {/* --- TOP SECTION: IMAGES & INFO --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        
+
         {/* Left: Gallery */}
         <div>
           <div className="h-96 rounded-2xl overflow-hidden shadow-sm border border-gray-200 mb-4 bg-white relative">
-            <img 
-              src={activeImage} 
-              alt={product.name} 
+            <img
+              src={activeImage}
+              alt={product.name}
               className="w-full h-full object-contain"
             />
           </div>
-          {/* Thumbnails */}
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {product.images.map((img, index) => (
-              <button 
-                key={index}
-                onClick={() => setActiveImage(img)}
-                className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${activeImage === img ? 'border-primary ring-2 ring-primary/30' : 'border-gray-200 hover:border-gray-300'}`}
-              >
-                <img src={img} alt="thumb" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
+          {/* Thumbnails - Schema: product_images relation */}
+          {product.product_images && product.product_images.length > 0 && (
+            <div className="flex gap-4 overflow-x-auto pb-2">
+              {product.product_images.map((img) => (
+                <button
+                  key={img.id}
+                  onClick={() => setActiveImage(img.url)}
+                  className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${activeImage === img.url
+                    ? 'border-primary ring-2 ring-primary/30'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                >
+                  <img src={img.url} alt="thumb" className="w-full h-full object-cover" />
+                  {img.is_primary && (
+                    <span className="absolute top-0 right-0 bg-primary text-white text-[8px] px-1 rounded-bl">CHÍNH</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Info */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-          <h1 className="text-3xl font-bold text-text-main mb-2">{product.name}</h1>
-          <p className="text-sm text-text-light">Posted at: {new Date(product.createdAt).toLocaleDateString('en-US')}</p>
+          <div className="flex items-start justify-between mb-2">
+            <h1 className="text-3xl font-bold text-text-main">{product.name}</h1>
+            {/* Schema: product_status enum */}
+            {product.status && (
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${product.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                product.status === 'SOLD' ? 'bg-blue-100 text-blue-700' :
+                  product.status === 'EXPIRED' ? 'bg-gray-100 text-gray-700' :
+                    'bg-red-100 text-red-700'
+                }`}>
+                {{ 'ACTIVE': 'ĐANG DIỄN RA', 'SOLD': 'ĐÃ BÁN', 'EXPIRED': 'KẾT THÚC' }[product.status] || product.status}
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-text-light">
+            Đăng lúc: {product.created_at ? new Date(product.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+          </p>
 
-          {/* Price Box */}
+          {/* Price Box - Schema: current_price, start_price, buy_now_price */}
           <div className="bg-neutral-light/30 py-2 rounded-xl mb-6">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-text-light font-medium">Current Price</span>
-              <span className="text-3xl font-bold text-primary">{formatCurrency(product.currentPrice || product.price)}</span>
+              <span className="text-text-light font-medium">Giá hiện tại</span>
+              <span className="text-3xl font-bold text-primary">
+                {formatCurrency(currentPrice)}
+              </span>
             </div>
-            {product.buyNowPrice && (
+            {buyNowPrice && (
               <div className="flex justify-between items-center text-sm">
-                <span className="text-text-light">Buy Now Price</span>
-                <span className="font-semibold text-secondary">{formatCurrency(product.buyNowPrice)}</span>
+                <span className="text-text-light">Giá mua ngay</span>
+                <span className="font-semibold text-secondary">{formatCurrency(buyNowPrice)}</span>
               </div>
             )}
           </div>
 
           {/* Time & Seller Info */}
           <div className="grid grid-cols-2 gap-4 mb-8">
-             {/* Time Left [cite: 58-59] */}
-             <div className="p-3 bg-red-50 rounded-lg border border-red-100">
-                <p className="text-xs text-red-500 font-bold uppercase mb-1 flex items-center gap-1">
-                  <FaClock /> Time Left
-                </p>
-                <p className="text-lg font-bold text-text-main">
-                  {formatTimeLeft(product.endTime)}
-                </p>
-             </div>
-             
-             {/* Seller [cite: 54] */}
-             <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <p className="text-xs text-blue-500 font-bold uppercase mb-1 flex items-center gap-1">
-                  <FaStore /> Seller
-                </p>
-                <p className="font-medium">{product.seller?.name || product.seller?.fullName || 'Unknown'} (Rate: {product.seller?.rating || product.seller?.ratingScore || 0}/10)</p>
-             </div>
+            {/* Time Left - Schema: end_time */}
+            <div className="p-3 bg-red-50 rounded-lg border border-red-100">
+              <p className="text-xs text-red-500 font-bold uppercase mb-1 flex items-center gap-1">
+                <FaClock /> Thời gian còn lại
+              </p>
+              <p className="text-lg font-bold text-text-main">
+                {product.end_time ? formatTimeLeft(product.end_time) : 'N/A'}
+              </p>
+            </div>
 
-             {/* Highest Bidder [cite: 55] */}
-             <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100 col-span-2">
-                <p className="text-xs text-yellow-600 font-bold uppercase mb-1 flex items-center gap-1">
-                  <FaUser /> Highest Bidder
-                </p>
-                <p className="font-medium">
-                  {product.currentBidder?.name || 'None'} 
+            {/* Seller - Schema: users_products_seller_idTousers relation */}
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+              <p className="text-xs text-blue-500 font-bold uppercase mb-1 flex items-center gap-1">
+                <FaStore /> Người bán
+              </p>
+              <p className="font-medium">
+                {sellerName}
+                <span className="text-xs text-text-light ml-2">
+                  (Đánh giá: {sellerRating}%)
+                </span>
+              </p>
+            </div>
+
+            {/* Highest Bidder - Schema: winner relation or bids[0] */}
+            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100 col-span-2">
+              <p className="text-xs text-yellow-600 font-bold uppercase mb-1 flex items-center gap-1">
+                <FaUser /> Người giữ giá cao nhất
+              </p>
+              <p className="font-medium">
+                {currentBidderName}
+                {product.winner?.rating_score && (
                   <span className="text-xs font-normal text-text-light ml-2">
-                    (Score: {product.currentBidder?.rating || 0} points)
+                    (Điểm: {product.winner.rating_score.toFixed(1)})
                   </span>
-                </p>
-             </div>
+                )}
+              </p>
+            </div>
           </div>
+
+          {/* WebSocket Status */}
+          {isConnected && (
+            <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-2 text-sm text-green-700 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              Đang cập nhật trực tiếp
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-4">
-            <button 
+            <button
               onClick={handlePlaceBid}
-              className="flex-1 bg-primary text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2"
+              disabled={product?.status !== 'ACTIVE'}
+              className="flex-1 bg-primary-light text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 disabled:scale-100"
             >
-              <FaGavel /> PLACE BID
+              <FaGavel /> ĐẤU GIÁ
             </button>
-            <button className="p-3 border border-gray-300 rounded-xl hover:bg-gray-50 text-gray-500 transition">
-              <FaHeart className="text-xl" />
+            {buyNowPrice && product?.status === 'ACTIVE' && !isSeller && (
+              <button
+                onClick={() => setIsBuyNowModalOpen(true)}
+                className="flex-1 bg-primary text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2"
+              >
+                MUA NGAY
+              </button>
+            )}
+            <button
+              onClick={handleToggleWatchlist}
+              className={`p-3 border rounded-xl transition ${isInWatchlist
+                ? 'border-red-300 bg-red-50 text-red-500'
+                : 'border-gray-300 hover:bg-gray-50 text-gray-500'
+                }`}
+            >
+              <FaHeart className={`text-xl ${isInWatchlist ? 'fill-current' : ''}`} />
             </button>
           </div>
           <p className="text-xs text-center text-text-light mt-3">
-            * Min Step Price: {formatCurrency(product.stepPrice)}
+            * Bước giá tối thiểu: {stepPrice ? formatCurrency(stepPrice) : 'N/A'}
           </p>
         </div>
       </div>
 
       {/* --- MIDDLE SECTION: DESCRIPTION & HISTORY --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-        
-        {/* Description (Left - 2/3) [cite: 60] */}
+
+        {/* Description (Left - 2/3) - Schema: description field + product_descriptions relation */}
         <div className="lg:col-span-2">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full">
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 border-b pb-2">
-              Description
-            </h3>
-            {/* Using dangerouslySetInnerHTML for HTML content from WYSIWYG */}
-            <div 
-              className="prose max-w-none text-text-light"
-              dangerouslySetInnerHTML={{ __html: product.description }} 
-            />
+            <div className="flex items-center justify-between mb-4 border-b pb-2">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                Mô tả
+              </h3>
+              {/* Schema: view_count */}
+              {product.view_count !== undefined && (
+                <span className="text-sm text-text-light">
+                  👁️ {product.view_count} lượt xem
+                </span>
+              )}
+            </div>
+            {/* Main description - Schema: products.description */}
+            {product.description && (
+              <div
+                className="prose max-w-none text-text-light mb-4"
+                dangerouslySetInnerHTML={{ __html: product.description }}
+              />
+            )}
+            {/* Additional descriptions - Schema: product_descriptions relation */}
+            {product.product_descriptions && product.product_descriptions.length > 0 && (
+              <div className="space-y-4 mt-4 pt-4 border-t">
+                <h4 className="font-semibold text-text-main">Thông tin bổ sung</h4>
+                {product.product_descriptions.map((desc, index) => (
+                  <div key={desc.id || index} className="text-text-light">
+                    <p className="text-xs text-gray-400 mb-1">
+                      Cập nhật {desc.created_at ? new Date(desc.created_at).toLocaleDateString('vi-VN') : ''}
+                    </p>
+                    <div
+                      className="prose max-w-none"
+                      dangerouslySetInnerHTML={{ __html: desc.content }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -158,51 +481,223 @@ const ProductDetail = () => {
         <div className="lg:col-span-1">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full">
             <h3 className="text-xl font-bold mb-4 flex items-center gap-2 border-b pb-2">
-              <FaHistory className="text-primary" /> Bid History
+              <FaHistory className="text-primary" /> Lịch sử đấu giá
             </h3>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-text-light uppercase bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2">Time</th>
-                    <th className="px-3 py-2">Bidder</th>
-                    <th className="px-3 py-2 text-right">Amount</th>
+                    <th className="px-3 py-2">Thời gian</th>
+                    <th className="px-3 py-2">Người mua</th>
+                    <th className="px-3 py-2 text-right">Giá</th>
+                    {isSeller && <th className="px-3 py-2 text-center">Thao tác</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {product.bidHistory.map((bid) => (
+                  {bidHistory.map((bid) => (
                     <tr key={bid.id} className="border-b last:border-0 hover:bg-gray-50">
                       <td className="px-3 py-3 text-gray-500">
-                        {new Date(bid.time).toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' })}
-                        <br/>
-                        <span className="text-[10px]">{new Date(bid.time).toLocaleDateString('en-US')}</span>
+                        {new Date(bid.time || bid.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                        <br />
+                        <span className="text-[10px]">{new Date(bid.time || bid.created_at).toLocaleDateString('vi-VN')}</span>
                       </td>
-                      <td className="px-3 py-3 font-medium text-text-main">{bid.bidder}</td>
+                      <td className="px-3 py-3 font-medium text-text-main">
+                        {bid.bidder_name || bid.users?.full_name || 'Ẩn danh'}
+                        {bid.is_auto_bid && <span className="ml-2 text-xs text-blue-600 font-semibold">(Tự động)</span>}
+                        {bid.status === 'REJECTED' && <span className="ml-2 text-xs text-red-500 font-bold">(BỊ CẤM)</span>}
+                      </td>
                       <td className="px-3 py-3 text-right font-bold text-primary">
-                        {formatCurrency(bid.price)}
+                        {formatCurrency(bid.amount)}
+                        {bid.max_amount && bid.is_auto_bid && (
+                          <span className="block text-xs text-gray-500">Max: {formatCurrency(bid.max_amount)}</span>
+                        )}
                       </td>
+                      {isSeller && (
+                        <td className="px-3 py-3 text-center">
+                          {bid.bidder_id && bid.status !== 'REJECTED' && (
+                            <button
+                              onClick={() => openBanModal(bid)}
+                              className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200"
+                            >
+                              Cấm
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {product.bidHistory.length === 0 && (
-                <p className="text-center text-gray-400 py-4">No bids yet. Be the first!</p>
+              {bidHistory.length === 0 && (
+                <p className="text-center text-gray-400 py-4">Chưa có lượt đấu giá nào.</p>
               )}
             </div>
           </div>
+
         </div>
       </div>
 
-      {/* --- BOTTOM SECTION: RELATED PRODUCTS [cite: 62] --- */}
-      <section>
-        <h2 className="text-2xl font-bold mb-6 text-text-main">Related Products</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {mockProducts.slice(0, 5).map((item) => (
-            <ProductCard key={item.id} product={item} />
-          ))}
+      {/* --- Q&A Section (Moved to Bottom Full Width) --- */}
+      <div className="mb-12">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="text-xl font-bold mb-4 border-b pb-2">Hỏi & Đáp</h3>
+
+          <div className="space-y-6">
+            {product.product_questions && product.product_questions.length > 0 ? (
+              product.product_questions.map((q) => (
+                <div key={q.id} className="border-b pb-4 last:border-0">
+                  <div className="flex justify-between items-start">
+                    <div className="bg-gray-50 p-3 rounded-lg w-full">
+                      <p className="font-semibold text-sm text-gray-700 mb-1">
+                        Hỏi: {q.question}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {q.users?.full_name || 'Người dùng'} hỏi vào {new Date(q.created_at).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {q.answer ? (
+                    <div className="bg-blue-50 p-3 rounded-lg ml-8 mt-2 border-l-4 border-blue-400">
+                      <p className="font-semibold text-sm text-gray-700 mb-1">
+                        Đáp: {q.answer}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Trả lời vào {new Date(q.answered_at).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                  ) : (
+                    isSeller && (
+                      <div className="ml-8 mt-2">
+                        {activeQuestionId === q.id ? (
+                          <form onSubmit={(e) => handleAnswerQuestion(e, q.id)}>
+                            <textarea
+                              className="w-full border rounded p-2 text-sm"
+                              placeholder="Nhập câu trả lời..."
+                              value={answerContent}
+                              onChange={(e) => setAnswerContent(e.target.value)}
+                              rows="2"
+                            ></textarea>
+                            <div className="flex justify-end gap-2 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => { setActiveQuestionId(null); setAnswerContent(''); }}
+                                className="text-xs text-gray-500 hover:text-gray-700"
+                              >Hủy</button>
+                              <button
+                                type="submit"
+                                className="text-xs bg-primary text-white px-3 py-1 rounded"
+                              >Trả lời</button>
+                            </div>
+                          </form>
+                        ) : (
+                          <button
+                            onClick={() => setActiveQuestionId(q.id)}
+                            className="text-xs text-primary font-semibold hover:underline"
+                          >
+                            Trả lời câu hỏi này
+                          </button>
+                        )}
+                      </div>
+                    )
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-gray-400 text-sm italic">Chưa có câu hỏi nào.</p>
+            )}
+          </div>
+
+          {/* Ask Question Form */}
+          {!isSeller && isAuthenticated && (
+            <div className="mt-6 border-t pt-4">
+              <h4 className="font-semibold text-sm mb-2">Đặt câu hỏi</h4>
+              <form onSubmit={handleCreateQuestion}>
+                <textarea
+                  className="w-full border rounded-lg p-3 text-sm focus:ring-primary focus:border-primary"
+                  placeholder="Hỏi người bán về sản phẩm này..."
+                  value={questionContent}
+                  onChange={(e) => setQuestionContent(e.target.value)}
+                  rows="3"
+                ></textarea>
+                <button
+                  type="submit"
+                  className="mt-2 bg-secondary text-text-main font-bold py-2 px-4 rounded-lg text-sm hover:bg-primary transition"
+                >
+                  Gửi câu hỏi
+                </button>
+              </form>
+            </div>
+          )}
         </div>
-      </section>
+      </div>
+
+      {/* Ban Modal */}
+      {isBanModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-bold text-red-600 mb-4">Từ chối người mua?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Bạn có chắc chắn muốn từ chối <strong>{bidderToBan?.bidder_name}</strong>?
+              Họ sẽ không thể đấu giá sản phẩm này nữa, và các lượt đấu giá của họ sẽ bị hủy.
+            </p>
+            <label className="block text-sm font-medium mb-1">Lý do (bắt buộc)</label>
+            <input
+              type="text"
+              className="w-full border rounded p-2 mb-4"
+              placeholder="Ví dụ: Không thanh toán..."
+              value={banReason}
+              onChange={(e) => setBanReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setIsBanModalOpen(false); setBidderToBan(null); }}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleBanBidder}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold"
+              >
+                Xác nhận từ chối
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- BOTTOM SECTION: RELATED PRODUCTS [cite: 62] --- */}
+      {relatedProducts.length > 0 && (
+        <section>
+          <h2 className="text-2xl font-bold mb-6 text-text-main">Sản phẩm liên quan</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {relatedProducts.map((item) => (
+              <ProductCard key={item.id} product={item} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Bid Modal */}
+      <BidModal
+        isOpen={showBidModal}
+        onClose={() => setShowBidModal(false)}
+        product={product}
+      />
+
+      {/* Buy Now Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isBuyNowModalOpen}
+        onCancel={() => setIsBuyNowModalOpen(false)}
+        onConfirm={handleBuyNow}
+        title="Xác nhận mua ngay"
+        message={`Bạn có chắc chắn muốn mua sản phẩm "${product?.name}" với giá ${formatCurrency(buyNowPrice)} không?`}
+        confirmText={buyingNow ? 'Đang xử lý...' : 'Xác nhận mua'}
+        cancelText="Hủy"
+        type="warning"
+      />
     </div>
   );
 };
