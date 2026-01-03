@@ -5,6 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import './styles/global.css';
 import AppRoutes from './routes/AppRoutes';
 import { useWebSocket } from './hooks/useWebSocket';
+import ScrollToTop from './components/common/ScrollToTop';
 
 function App() {
   // Initialize WebSocket connection (will connect when user is authenticated)
@@ -15,7 +16,7 @@ function App() {
       <BrowserRouter>
         {/* App Routes */}
         <AppRoutes />
-
+        <ScrollToTop />
         {/* Toast Container */}
         <ToastContainer position="top-right" autoClose={3000} />
       </BrowserRouter>
