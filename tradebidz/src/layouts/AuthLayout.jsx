@@ -19,7 +19,7 @@ const AuthLayout = () => {
             </Link>
 
             <p className="text-3xl font-semibold italic mb-8 text-text-light">
-            The highest auction platform - Where your passion for valuation comes to life
+            Nền tảng đấu giá hàng đầu - Nơi niềm đam mê định giá của bạn được hiện thực hóa
             </p>
         </div>
       </div>

@@ -15,19 +15,19 @@ import {
 const emailSchema = yup.object({
   email: yup
     .string()
-    .email("Email is not valid")
-    .required("Email is required"),
+    .email("Email không hợp lệ")
+    .required("Vui lòng nhập Email"),
 });
 
 const passwordSchema = yup.object({
   password: yup
     .string()
-    .min(6, "Password must be at least 6 characters")
-    .required("Password is required"),
+    .min(6, "Mật khẩu phải có ít nhất 6 ký tự")
+    .required("Vui lòng nhập mật khẩu"),
   confirmPassword: yup
     .string()
-    .oneOf([yup.ref("password"), null], "Confirm password does not match")
-    .required("Please confirm password"),
+    .oneOf([yup.ref("password"), null], "Mật khẩu xác nhận không khớp")
+    .required("Vui lòng xác nhận mật khẩu"),
 });
 
 const ForgotPasswordPage = () => {
@@ -63,13 +63,13 @@ const ForgotPasswordPage = () => {
       await requestResetPassword(data.email);
       setEmail(data.email);
       setStep("verify");
-      toast.success("Password reset OTP has been sent to your email.");
+      toast.success("Mã OTP đã được gửi đến email của bạn.");
     } catch (error) {
       const message =
         error.response?.data?.message ||
-        "Failed to send reset password OTP. Please try again.";
+        "Gửi mã OTP thất bại. Vui lòng thử lại.";
       toast.error(message);
-      
+
       // Extract cooldown from error message if available
       const cooldownMatch = message.match(/wait (\d+) seconds/);
       if (cooldownMatch) {
@@ -93,7 +93,7 @@ const ForgotPasswordPage = () => {
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     if (otp.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
+      toast.error("Vui lòng nhập mã OTP 6 số hợp lệ");
       return;
     }
 
@@ -101,10 +101,10 @@ const ForgotPasswordPage = () => {
     try {
       await verifyResetOtp(email, otp);
       setStep("reset");
-      toast.success("OTP verified successfully. You can now reset your password.");
+      toast.success("Xác thực thành công. Vui lòng đặt lại mật khẩu.");
     } catch (error) {
       const message =
-        error.response?.data?.message || "Invalid OTP. Please try again.";
+        error.response?.data?.message || "Mã OTP không hợp lệ. Vui lòng thử lại.";
       toast.error(message);
       setOtp("");
     } finally {
@@ -116,12 +116,12 @@ const ForgotPasswordPage = () => {
     setIsResetting(true);
     try {
       await resetPasswordRequest(email, otp, data.password);
-      toast.success("Password has been reset successfully. Please login with your new password.");
+      toast.success("Đặt lại mật khẩu thành công. Vui lòng đăng nhập.");
       navigate("/login");
     } catch (error) {
       const message =
         error.response?.data?.message ||
-        "Failed to reset password. Please try again.";
+        "Đặt lại mật khẩu thất bại. Vui lòng thử lại.";
       toast.error(message);
     } finally {
       setIsResetting(false);
@@ -130,15 +130,15 @@ const ForgotPasswordPage = () => {
 
   const handleResendOtp = async () => {
     if (resendCooldown > 0) {
-      toast.error(`Please wait ${resendCooldown} seconds before requesting a new OTP`);
+      toast.error(`Vui lòng đợi ${resendCooldown} giây trước khi yêu cầu mã OTP mới`);
       return;
     }
 
     setIsResending(true);
     try {
       await requestResetPassword(email);
-      toast.success("OTP has been resent. Please check your email.");
-      
+      toast.success("Mã OTP đã được gửi lại. Vui lòng kiểm tra email.");
+
       // Set cooldown timer (60 seconds)
       setResendCooldown(60);
       const interval = setInterval(() => {
@@ -152,9 +152,9 @@ const ForgotPasswordPage = () => {
       }, 1000);
     } catch (error) {
       const message =
-        error.response?.data?.message || "Failed to resend OTP. Please try again.";
+        error.response?.data?.message || "Gửi lại OTP thất bại. Vui lòng thử lại.";
       toast.error(message);
-      
+
       // Extract cooldown from error message if available
       const cooldownMatch = message.match(/wait (\d+) seconds/);
       if (cooldownMatch) {
@@ -185,10 +185,10 @@ const ForgotPasswordPage = () => {
     return (
       <div>
         <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">
-          Forgot Password
+          Quên mật khẩu
         </h2>
         <p className="text-text-light text-center mb-6">
-          Enter your email to receive a password reset OTP code.
+          Nhập email của bạn để nhận mã OTP đặt lại mật khẩu.
         </p>
 
         <form onSubmit={handleEmailSubmit(onSubmitRequest)} className="space-y-4">
@@ -211,14 +211,14 @@ const ForgotPasswordPage = () => {
                        shadow-sm text-sm font-medium text-white bg-primary 
                        focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {isRequesting ? "Sending..." : "Send Reset OTP"}
+            {isRequesting ? "Đang gửi..." : "Gửi mã OTP"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-text-light">
-          Remember your password?{" "}
+          Đã nhớ mật khẩu?{" "}
           <Link to="/login" className="text-primary font-semibold hover:underline">
-            Login
+            Đăng nhập
           </Link>
         </p>
       </div>
@@ -230,16 +230,16 @@ const ForgotPasswordPage = () => {
     return (
       <div>
         <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">
-          Verify Reset OTP
+          Xác thực OTP
         </h2>
         <p className="text-text-light text-center mb-6">
-          We've sent a 6-digit OTP code to <strong>{email}</strong>
+          Chúng tôi đã gửi mã OTP 6 số đến <strong>{email}</strong>
         </p>
 
         <form onSubmit={handleVerifyOtp} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-text-main mb-2">
-              Enter OTP Code
+              Nhập mã OTP
             </label>
             <input
               type="text"
@@ -252,7 +252,7 @@ const ForgotPasswordPage = () => {
                          text-2xl tracking-widest font-mono"
             />
             <p className="text-text-light text-xs mt-2 text-center">
-              Enter the 6-digit code sent to your email
+              Nhập mã 6 số được gửi đến email của bạn
             </p>
           </div>
 
@@ -263,7 +263,7 @@ const ForgotPasswordPage = () => {
                        shadow-sm text-sm font-medium text-white bg-primary 
                        focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {isVerifying ? "Verifying..." : "Verify OTP"}
+            {isVerifying ? "Đang xác thực..." : "Xác thực"}
           </button>
 
           <div className="text-center">
@@ -275,16 +275,16 @@ const ForgotPasswordPage = () => {
                          disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isResending
-                ? "Sending..."
+                ? "Đang gửi..."
                 : resendCooldown > 0
-                ? `Resend OTP in ${resendCooldown}s`
-                : "Resend OTP"}
+                  ? `Gửi lại sau ${resendCooldown}s`
+                  : "Gửi lại OTP"}
             </button>
           </div>
         </form>
 
         <p className="mt-6 text-center text-sm text-text-light">
-          Wrong email?{" "}
+          Sai email?{" "}
           <button
             onClick={() => {
               setStep("request");
@@ -293,7 +293,7 @@ const ForgotPasswordPage = () => {
             }}
             className="font-semibold text-primary hover:underline"
           >
-            Go back
+            Quay lại
           </button>
         </p>
       </div>
@@ -304,16 +304,16 @@ const ForgotPasswordPage = () => {
   return (
     <div>
       <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">
-        Reset Password
+        Đặt lại mật khẩu
       </h2>
       <p className="text-text-light text-center mb-6">
-        Enter your new password below.
+        Nhập mật khẩu mới của bạn bên dưới.
       </p>
 
       <form onSubmit={handlePasswordSubmit(onSubmitReset)} className="space-y-4">
         {/* New Password */}
         <div>
-          <label className="block text-sm font-medium text-text-main">New Password</label>
+          <label className="block text-sm font-medium text-text-main">Mật khẩu mới</label>
           <input
             type="password"
             {...registerPassword("password")}
@@ -326,7 +326,7 @@ const ForgotPasswordPage = () => {
         {/* Confirm Password */}
         <div>
           <label className="block text-sm font-medium text-text-main">
-            Confirm New Password
+            Xác nhận mật khẩu mới
           </label>
           <input
             type="password"
@@ -346,14 +346,14 @@ const ForgotPasswordPage = () => {
                      shadow-sm text-sm font-medium text-white bg-primary 
                      focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {isResetting ? "Resetting..." : "Reset Password"}
+          {isResetting ? "Đang đặt lại..." : "Đặt lại mật khẩu"}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-text-light">
-        Remember your password?{" "}
+        Đã nhớ mật khẩu?{" "}
         <Link to="/login" className="text-primary font-semibold hover:underline">
-          Login
+          Đăng nhập
         </Link>
       </p>
     </div>

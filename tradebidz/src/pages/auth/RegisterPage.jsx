@@ -5,18 +5,18 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { toast } from "react-toastify";
 import { useDispatch } from "react-redux";
-import ReCAPTCHA from "react-google-recaptcha"; 
+import ReCAPTCHA from "react-google-recaptcha";
 import { register as registerRequest, verifyOtp, resendOtp } from "../../services/authService";
 import { loginSuccess } from "../../redux/slices/authSlice";
 
 // Schema Validation
 const schema = yup.object({
-  fullName: yup.string().required('Full name is required'),
-  email: yup.string().email('Email is not valid').required('Email is required'),
-  password: yup.string().min(6, 'Password must be at least 6 characters').required('Password is required'),
+  fullName: yup.string().required('Vui lòng nhập họ và tên'),
+  email: yup.string().email('Email không hợp lệ').required('Vui lòng nhập Email'),
+  password: yup.string().min(6, 'Mật khẩu phải có ít nhất 6 ký tự').required('Vui lòng nhập mật khẩu'),
   confirmPassword: yup.string()
-    .oneOf([yup.ref('password'), null], 'Confirm password does not match')
-    .required('Please confirm password'),
+    .oneOf([yup.ref('password'), null], 'Mật khẩu xác nhận không khớp')
+    .required('Vui lòng xác nhận mật khẩu'),
 }).required();
 
 const RegisterPage = () => {
@@ -27,7 +27,7 @@ const RegisterPage = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  
+
   // Access environment variable safely
   const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
@@ -43,7 +43,7 @@ const RegisterPage = () => {
 
   const onSubmit = async (data) => {
     if (!captchaToken) {
-      toast.error("Please complete the reCAPTCHA");
+      toast.error("Vui lòng hoàn thành captcha");
       return;
     }
 
@@ -57,9 +57,9 @@ const RegisterPage = () => {
 
       setRegisteredEmail(data.email);
       setStep('verify');
-      toast.success(response.message || "Registration successful! Please check your email for OTP.");
+      toast.success(response.message || "Đăng ký thành công! Vui lòng kiểm tra email để lấy mã OTP.");
     } catch (error) {
-      const message = error.response?.data?.message || "Registration failed. Please try again.";
+      const message = error.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại.";
       toast.error(message);
       // Reset captcha on error to force re-verification
       setCaptchaToken(null);
@@ -69,18 +69,18 @@ const RegisterPage = () => {
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     if (otp.length !== 6) {
-      toast.error("Please enter a valid 6-digit OTP");
+      toast.error("Vui lòng nhập mã OTP 6 số hợp lệ");
       return;
     }
 
     setIsVerifying(true);
     try {
       const response = await verifyOtp(registeredEmail, otp);
-      
+
       // Auto-login after successful verification
       const accessToken = response.access_token || response.accessToken;
       const refreshToken = response.refresh_token || response.refreshToken;
-      
+
       // Get user info - we'll need to fetch it or decode from token
       // For now, we'll decode from token or fetch user
       // dispatch(loginSuccess({
@@ -89,10 +89,10 @@ const RegisterPage = () => {
       //   user: response.user || null,
       // }));
 
-      toast.success("Email verified successfully! Let's login.");
+      toast.success("Xác thực email thành công! Hãy đăng nhập.");
       navigate('/login');
     } catch (error) {
-      const message = error.response?.data?.message || "Invalid OTP. Please try again.";
+      const message = error.response?.data?.message || "Mã OTP không hợp lệ. Vui lòng thử lại.";
       toast.error(message);
       setOtp('');
     } finally {
@@ -102,15 +102,15 @@ const RegisterPage = () => {
 
   const handleResendOtp = async () => {
     if (resendCooldown > 0) {
-      toast.error(`Please wait ${resendCooldown} seconds before requesting a new OTP`);
+      toast.error(`Vui lòng đợi ${resendCooldown} giây trước khi yêu cầu mã OTP mới`);
       return;
     }
 
     setIsResending(true);
     try {
       await resendOtp(registeredEmail);
-      toast.success("OTP has been resent. Please check your email.");
-      
+      toast.success("Mã OTP đã được gửi lại. Vui lòng kiểm tra email.");
+
       // Set cooldown timer (60 seconds)
       setResendCooldown(60);
       const interval = setInterval(() => {
@@ -123,9 +123,9 @@ const RegisterPage = () => {
         });
       }, 1000);
     } catch (error) {
-      const message = error.response?.data?.message || "Failed to resend OTP. Please try again.";
+      const message = error.response?.data?.message || "Gửi lại OTP thất bại. Vui lòng thử lại.";
       toast.error(message);
-      
+
       // Extract cooldown from error message if available
       const cooldownMatch = message.match(/wait (\d+) seconds/);
       if (cooldownMatch) {
@@ -154,14 +154,14 @@ const RegisterPage = () => {
   if (step === 'verify') {
     return (
       <div>
-        <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">Verify Your Email</h2>
+        <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">Xác thực Email</h2>
         <p className="text-text-light text-center mb-6">
-          We've sent a 6-digit OTP code to <strong>{registeredEmail}</strong>
+          Chúng tôi đã gửi mã OTP 6 số đến <strong>{registeredEmail}</strong>
         </p>
 
         <form onSubmit={handleVerifyOtp} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-text-main mb-2">Enter OTP Code</label>
+            <label className="block text-sm font-medium text-text-main mb-2">Nhập mã OTP</label>
             <input
               type="text"
               value={otp}
@@ -171,7 +171,7 @@ const RegisterPage = () => {
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-center text-2xl tracking-widest font-mono"
             />
             <p className="text-text-light text-xs mt-2 text-center">
-              Enter the 6-digit code sent to your email
+              Nhập mã 6 số được gửi đến email của bạn
             </p>
           </div>
 
@@ -180,7 +180,7 @@ const RegisterPage = () => {
             disabled={isVerifying || otp.length !== 6}
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {isVerifying ? 'Verifying...' : 'Verify Email'}
+            {isVerifying ? 'Đang xác thực...' : 'Xác thực'}
           </button>
 
           <div className="text-center">
@@ -191,16 +191,16 @@ const RegisterPage = () => {
               className="text-sm text-primary font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isResending
-                ? 'Sending...'
+                ? 'Đang gửi...'
                 : resendCooldown > 0
-                ? `Resend OTP in ${resendCooldown}s`
-                : 'Resend OTP'}
+                  ? `Gửi lại sau ${resendCooldown}s`
+                  : 'Gửi lại OTP'}
             </button>
           </div>
         </form>
 
         <p className="mt-6 text-center text-sm text-text-light">
-          Wrong email?{' '}
+          Sai email?{' '}
           <button
             onClick={() => {
               setStep('register');
@@ -209,7 +209,7 @@ const RegisterPage = () => {
             }}
             className="font-semibold text-primary hover:underline"
           >
-            Go back
+            Quay lại
           </button>
         </p>
       </div>
@@ -218,13 +218,13 @@ const RegisterPage = () => {
 
   return (
     <div>
-      <h2 className="text-3xl font-bold text-primary-dark  text-center mb-2">Register Account</h2>
-      <p className="text-text-light text-center mb-6">Join the TradeBid community now!</p>
+      <h2 className="text-3xl font-bold text-primary-dark  text-center mb-2">Đăng ký tài khoản</h2>
+      <p className="text-text-light text-center mb-6">Tham gia cộng đồng TradeBid ngay hôm nay!</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         {/* Full name */}
         <div>
-          <label className="block text-sm font-medium text-text-main">Full name</label>
+          <label className="block text-sm font-medium text-text-main">Họ và tên</label>
           <input {...register("fullName")} className="input-field mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary" />
           <p className="text-red-500 text-xs mt-1">{errors.fullName?.message}</p>
         </div>
@@ -238,7 +238,7 @@ const RegisterPage = () => {
 
         {/* Password */}
         <div>
-          <label className="block text-sm font-medium text-text-main">Password</label>
+          <label className="block text-sm font-medium text-text-main">Mật khẩu</label>
           <input
             type="password"
             {...register("password")}
@@ -249,7 +249,7 @@ const RegisterPage = () => {
 
         {/* Confirm Password */}
         <div>
-          <label className="block text-sm font-medium text-text-main">Confirm password</label>
+          <label className="block text-sm font-medium text-text-main">Xác nhận mật khẩu</label>
           <input
             type="password"
             {...register("confirmPassword")}
@@ -272,19 +272,19 @@ const RegisterPage = () => {
           )}
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           disabled={isSubmitting || !captchaToken}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary focus:outline-none disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? 'Registering...' : 'Register account'}
+          {isSubmitting ? 'Đang đăng ký...' : 'Đăng ký'}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-text-light">
-        Already have an account?{' '}
+        Đã có tài khoản?{' '}
         <Link to="/login" className="font-semibold text-primary hover:underline">
-          Login
+          Đăng nhập
         </Link>
       </p>
     </div>

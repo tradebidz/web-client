@@ -29,10 +29,10 @@ const LoginPage = () => {
         user,
       }));
 
-      toast.success("Login successfully!");
+      toast.success("Đăng nhập thành công!");
       navigate('/');
     } catch (error) {
-      const message = error.response?.data?.message || "Login failed. Please try again.";
+      const message = error.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại.";
       toast.error(message);
     }
   };
@@ -56,25 +56,25 @@ const LoginPage = () => {
         user,
       }));
 
-      toast.success("Logged in with Google successfully!");
+      toast.success("Đăng nhập Google thành công!");
       navigate('/');
     } catch (error) {
       console.error("Google login error:", error);
-      const message = error.response?.data?.message || "Google login failed.";
+      const message = error.response?.data?.message || "Đăng nhập Google thất bại.";
       toast.error(message);
     }
   };
 
   return (
     <div>
-      <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">Welcome Back!</h2>
-      <p className="text-text-light text-center mb-6">Login to continue auction</p>
+      <h2 className="text-3xl font-bold text-primary-dark text-center mb-2">Chào mừng trở lại!</h2>
+      <p className="text-text-light text-center mb-6">Đăng nhập để tham gia đấu giá</p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
         <div>
           <label className="block text-sm font-medium text-text-main">Email</label>
           <input
-            {...register("email", { required: "Email is required", pattern: /^\S+@\S+$/i })}
+            {...register("email", { required: "Vui lòng nhập Email", pattern: { value: /^\S+@\S+$/i, message: "Email không hợp lệ" } })}
             type="email"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
           />
@@ -82,9 +82,9 @@ const LoginPage = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-text-main">Password</label>
+          <label className="block text-sm font-medium text-text-main">Mật khẩu</label>
           <input
-            {...register("password", { required: "Password is required" })}
+            {...register("password", { required: "Vui lòng nhập mật khẩu" })}
             type="password"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
           />
@@ -92,7 +92,7 @@ const LoginPage = () => {
         </div>
 
         <div className="flex justify-end">
-          <Link to="/forgot-password" className="text-sm text-primary font-semibold hover:underline">Forgot password?</Link>
+          <Link to="/forgot-password" className="text-sm text-primary font-semibold hover:underline">Quên mật khẩu?</Link>
         </div>
 
         <button
@@ -100,7 +100,7 @@ const LoginPage = () => {
           disabled={isSubmitting}
           className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary focus:outline-none disabled:opacity-70"
         >
-          {isSubmitting ? 'Signing in...' : 'Login'}
+          {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
       </form>
 
@@ -110,7 +110,7 @@ const LoginPage = () => {
             <div className="w-full border-t border-gray-300"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-text-light">Or continue with</span>
+            <span className="px-2 bg-white text-text-light">Hoặc tiếp tục với</span>
           </div>
         </div>
 
@@ -118,7 +118,7 @@ const LoginPage = () => {
           <GoogleLogin
             onSuccess={handleGoogleLoginSuccess}
             onError={() => {
-              toast.error('Google Login Failed');
+              toast.error('Đăng nhập Google thất bại');
             }}
             useOneTap
             shape="rectangular"
@@ -129,9 +129,9 @@ const LoginPage = () => {
       </div>
 
       <p className="mt-6 text-center text-sm text-text-light">
-        Don't have any account yet?{' '}
+        Chưa có tài khoản?{' '}
         <Link to="/register" className="font-semibold text-primary hover:underline">
-          Register now!
+          Đăng ký ngay!
         </Link>
       </p>
     </div>
