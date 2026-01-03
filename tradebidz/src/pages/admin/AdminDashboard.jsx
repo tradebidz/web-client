@@ -1,33 +1,56 @@
 import { useState, useEffect } from 'react';
 import { FaGavel, FaUserPlus, FaMoneyBillWave, FaStore } from 'react-icons/fa';
 import { formatCurrency } from '../../utils/format';
-import { mockProducts, mockUsers, mockUpgradeRequests } from '../../utils/mockData';
+import { getDashboardStats, getPendingUpgrades } from '../../services/adminService';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState([
-    { title: "Total Revenue", value: formatCurrency(19054), icon: <FaMoneyBillWave />, color: "bg-green-500" },
-    { title: "Active Auctions", value: "0", icon: <FaGavel />, color: "bg-blue-500" },
-    { title: "Total Users", value: "0", icon: <FaUserPlus />, color: "bg-purple-500" },
-    { title: "Upgrade Requests", value: "0", icon: <FaStore />, color: "bg-orange-500" },
+    { title: "Total Revenue", value: "---", icon: <FaMoneyBillWave />, color: "bg-green-500" },
+    { title: "Active Auctions", value: "---", icon: <FaGavel />, color: "bg-blue-500" },
+    { title: "Total Users", value: "---", icon: <FaUserPlus />, color: "bg-purple-500" },
+    { title: "Upgrade Requests", value: "---", icon: <FaStore />, color: "bg-orange-500" },
   ]);
+  const [loading, setLoading] = useState(true);
+  const [chartData, setChartData] = useState([]);
+  const [recentUpgrades, setRecentUpgrades] = useState([]);
 
   useEffect(() => {
-    // Calculate stats from mockData
-    const activeProducts = mockProducts.filter(p => p.status === 'ACTIVE').length;
-    const totalUsers = mockUsers.length;
-    const pendingUpgradeRequests = mockUpgradeRequests.filter(req => req.status === 'PENDING').length;
-    
-    // Calculate total revenue (sum of currentPrice of sold products)
-    const soldProducts = mockProducts.filter(p => p.status === 'SOLD');
-    const totalRevenue = soldProducts.reduce((sum, p) => sum + (p.currentPrice || 0), 19054);
+    const fetchStats = async () => {
+      try {
+        const data = await getDashboardStats();
 
-    setStats([
-      { title: "Total Revenue", value: formatCurrency(totalRevenue), icon: <FaMoneyBillWave />, color: "bg-green-500" },
-      { title: "Active Auctions", value: activeProducts.toString(), icon: <FaGavel />, color: "bg-blue-500" },
-      { title: "Total Users", value: totalUsers.toString(), icon: <FaUserPlus />, color: "bg-purple-500" },
-      { title: "Upgrade Requests", value: pendingUpgradeRequests.toString(), icon: <FaStore />, color: "bg-orange-500" },
-    ]);
+        setStats([
+          { title: "Total Revenue", value: formatCurrency(data.revenue.total_gmv || 0), icon: <FaMoneyBillWave />, color: "bg-green-500" },
+          { title: "Active Auctions", value: data.auctions.total.toString(), icon: <FaGavel />, color: "bg-blue-500" },
+          { title: "Total Users", value: data.users.total.toString(), icon: <FaUserPlus />, color: "bg-purple-500" },
+          { title: "Upgrade Requests", value: data.pending_upgrades.toString(), icon: <FaStore />, color: "bg-orange-500" },
+        ]);
+
+        // Process chart data (Revenue by category)
+        if (data.chart_data) {
+          // Mocking historical data structure for now or mapping specific category revenue
+          // The UI expects a bar chart array. Let's map category revenue to it if possible or keep mock for visual if data shape differs widely
+          // The backend returns revenue by category. Let's use that.
+          setChartData(data.chart_data);
+        }
+
+        // We might need to fetch recent upgrades separately if not in dashboard stats fully
+        // The dashboard stats API returns count, but we also have getPendingUpgrades
+        // Let's fetch pending for the list
+        const upgrades = await getPendingUpgrades();
+        setRecentUpgrades(upgrades.slice(0, 3));
+
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
   }, []);
+
+  if (loading) return <div className="flex justify-center p-8"><span className="loading loading-spinner text-primary"></span></div>;
 
   return (
     <div className="">
@@ -56,55 +79,52 @@ const AdminDashboard = () => {
         ))}
       </div>
 
-      {/* Charts Section (Mock UI with CSS Grid - No external lib needed for now) */}
+      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* Revenue Chart */}
+
+        {/* Revenue Chart - using Category Distribution for now as that's what we have */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-lg mb-6">Revenue Analytics (Last 7 Days)</h3>
+          <h3 className="font-bold text-lg mb-6">Revenue by Category</h3>
           <div className="flex items-end justify-between h-64 gap-2">
-            {[40, 65, 30, 80, 55, 90, 70].map((h, i) => (
-              <div key={i} className="w-full bg-blue-50 rounded-t-lg relative group">
-                <div 
-                    style={{ height: `${h}%` }} 
-                    className="absolute bottom-0 w-full bg-primary rounded-t-lg group-hover:bg-primary-dark transition-all"
+            {chartData.length > 0 ? chartData.map((item, i) => (
+              <div key={i} className="w-full bg-blue-50 rounded-t-lg relative group flex flex-col justify-end items-center">
+                <div
+                  style={{ height: `${Math.min((item.value / (Math.max(...chartData.map(c => c.value)) || 1)) * 100, 100)}%` }}
+                  className="w-full bg-primary rounded-t-lg group-hover:bg-primary-dark transition-all"
                 ></div>
-                <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded">
-                    {h}M
+                <div className="hidden group-hover:block absolute -top-8 bg-black text-white text-xs py-1 px-2 rounded z-10 whitespace-nowrap">
+                  {item.name}: {formatCurrency(item.value)}
                 </div>
+                <span className="text-[10px] mt-1 truncate w-full text-center">{item.name}</span>
               </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-400">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+            )) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-400">No revenue data</div>
+            )}
           </div>
         </div>
 
         {/* Recent Activity */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-           <h3 className="font-bold text-lg mb-4">Recent Upgrade Requests</h3>
-           <div className="space-y-4">
-              {mockUpgradeRequests
-                .filter(req => req.status === 'PENDING')
-                .slice(0, 3)
-                .map((request) => (
-                  <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
-                            {request.user?.fullName?.charAt(0) || 'U'}
-                          </div>
-                          <div>
-                              <p className="font-bold text-sm">{request.user?.fullName || `User #${request.userId}`}</p>
-                              <p className="text-xs text-gray-500">{request.reason || 'Wants to become Seller'}</p>
-                          </div>
-                      </div>
-                      <button className="text-xs bg-primary text-white px-3 py-1 rounded">Review</button>
+          <h3 className="font-bold text-lg mb-4">Recent Upgrade Requests</h3>
+          <div className="space-y-4">
+            {recentUpgrades.map((request) => (
+              <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
+                    {request.users?.full_name?.charAt(0) || 'U'}
                   </div>
-              ))}
-              {mockUpgradeRequests.filter(req => req.status === 'PENDING').length === 0 && (
-                <p className="text-center text-gray-400 py-4">No pending upgrade requests</p>
-              )}
-           </div>
+                  <div>
+                    <p className="font-bold text-sm">{request.users?.full_name || `User #${request.user_id}`}</p>
+                    <p className="text-xs text-gray-500">Wants to upgrade</p>
+                  </div>
+                </div>
+                <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Pending</span>
+              </div>
+            ))}
+            {recentUpgrades.length === 0 && (
+              <p className="text-center text-gray-400 py-4">No pending upgrade requests</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
