@@ -1,25 +1,44 @@
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import 'dayjs/locale/en';
+import 'dayjs/locale/vi'; // Import ngôn ngữ Tiếng Việt
 
 dayjs.extend(relativeTime);
-dayjs.locale('en');
+dayjs.locale('vi'); // Thiết lập sử dụng Tiếng Việt toàn cục
 
+/**
+ * Định dạng tiền tệ sang VNĐ
+ * Ví dụ: 20000000 -> 20.000.000 ₫
+ */
 export const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  return new Intl.NumberFormat('vi-VN', { 
+    style: 'currency', 
+    currency: 'VND' 
+  }).format(amount);
 };
 
+/**
+ * Định dạng thời gian còn lại sang Tiếng Việt
+ * Ví dụ: "vài giây trước", "3 ngày tới", "25/12/2025 08:30"
+ */
 export const formatTimeLeft = (dateString) => {
   const date = dayjs(dateString);
   const now = dayjs();
   const diffHours = date.diff(now, 'hour');
 
-  if (diffHours < 72 && diffHours > 0) {
+  // Nếu còn dưới 72 giờ thì hiển thị dạng "3 giờ tới" hoặc "1 ngày trước"
+  if (diffHours < 72 && diffHours > -72) {
     return date.fromNow(); 
   }
-  return date.format('MM/DD/YYYY HH:mm');
+  // Nếu quá thời gian trên thì hiển thị định dạng ngày tháng VN
+  return date.format('DD/MM/YYYY HH:mm');
 };
 
+/**
+ * Kiểm tra sản phẩm mới (Ví dụ: trong vòng 3 ngày kể từ khi tạo)
+ */
 export const isNewProduct = (createDate) => {
-  return true; 
+  const now = dayjs();
+  const created = dayjs(createDate);
+  // Trả về true nếu sản phẩm tạo trong vòng 72 giờ qua
+  return now.diff(created, 'hour') < 72; 
 };

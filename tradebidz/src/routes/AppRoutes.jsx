@@ -38,6 +38,14 @@ import ProductManagePage from '../pages/admin/ProductManagePage';
 import Forbidden from '../pages/Forbidden';
 import NotFound from '../pages/NotFound';
 
+// Static Pages
+import AboutPage from '../pages/static/AboutPage';
+import TermsPage from '../pages/static/TermsPage';
+import PrivacyPage from '../pages/static/PrivacyPage';
+import HowToBidPage from '../pages/static/HowToBidPage';
+import HowToSellPage from '../pages/static/HowToSellPage';
+import FAQPage from '../pages/static/FAQPage';
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -72,6 +80,14 @@ const AppRoutes = () => {
         <Route element={<ProtectedRoute allowedRoles={['BIDDER', 'ADMIN']} />}>
           <Route path="upgrade" element={<UpgradeSeller />} />
         </Route>
+
+        {/* Static Pages */}
+        <Route path="about" element={<AboutPage />} />
+        <Route path="terms" element={<TermsPage />} />
+        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="how-to-bid" element={<HowToBidPage />} />
+        <Route path="how-to-sell" element={<HowToSellPage />} />
+        <Route path="faq" element={<FAQPage />} />
       </Route>
 
       {/* Admin Routes */}
