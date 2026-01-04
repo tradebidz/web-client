@@ -34,6 +34,11 @@ import CategoryManagePage from '../pages/admin/CategoryManagePage';
 import UserManagePage from '../pages/admin/UserManagePage';
 import ProductManagePage from '../pages/admin/ProductManagePage';
 
+// Order Pages
+import OrderHistory from '../pages/order/OrderHistory';
+import PaymentSuccess from '../pages/order/PaymentSuccess';
+import PaymentFailed from '../pages/order/PaymentFailed';
+
 // Global fallback pages
 import Forbidden from '../pages/Forbidden';
 import NotFound from '../pages/NotFound';
@@ -68,6 +73,9 @@ const AppRoutes = () => {
           <Route path="watchlist" element={<WatchList />} />
           <Route path="bidding" element={<MyBidding />} />
           <Route path="won-products" element={<WonProducts />} />
+          <Route path="orders" element={<OrderHistory />} />
+          <Route path="orders/:id/success" element={<PaymentSuccess />} />
+          <Route path="payment/failed" element={<PaymentFailed />} />
         </Route>
 
         {/* Seller Routes */}

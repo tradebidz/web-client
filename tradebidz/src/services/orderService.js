@@ -13,3 +13,8 @@ export const getOrder = async (id) => {
     const { data } = await apiClient.get(`/orders/${id}`);
     return data;
 };
+
+export const getMyOrders = async () => {
+    const { data } = await apiClient.get('/orders');
+    return data;
+};

@@ -405,7 +405,7 @@ const ProductDetail = () => {
           <div className="flex gap-4">
             <button
               onClick={handlePlaceBid}
-              disabled={product?.status !== 'ACTIVE'}
+              disabled={product?.status !== 'ACTIVE' || isSeller}
               className="flex-1 bg-primary-light text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 disabled:scale-100"
             >
               <FaGavel /> ĐẤU GIÁ

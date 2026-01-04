@@ -108,6 +108,7 @@ const Header = () => {
           <Link to="/watchlist" className="nav-link hover:text-primary">Yêu thích</Link>
           <Link to="/bidding" className="nav-link hover:text-primary">Đang đấu giá</Link>
           <Link to="/won-products" className="nav-link hover:text-primary">Đã thắng</Link>
+          <Link to="/orders" className="nav-link hover:text-primary">Đơn hàng</Link>
         </>
       );
     }
@@ -118,6 +119,7 @@ const Header = () => {
           <Link to="/watchlist" className="nav-link hover:text-primary">Yêu thích</Link>
           <Link to="/bidding" className="nav-link hover:text-primary">Đang đấu giá</Link>
           <Link to="/won-products" className="nav-link hover:text-primary">Đã thắng</Link>
+          <Link to="/orders" className="nav-link hover:text-primary">Đơn hàng</Link>
         </>
       );
     }

@@ -34,6 +34,16 @@ export const formatTimeLeft = (dateString) => {
 };
 
 /**
+ * Định dạng ngày tháng năm đầy đủ
+ * Ví dụ: 2025-12-25 -> 25/12/2025
+ */
+export const formatDate = (dateString, includeTime = false) => {
+  if (!dateString) return '---';
+  const formatStr = includeTime ? 'DD/MM/YYYY HH:mm' : 'DD/MM/YYYY';
+  return dayjs(dateString).format(formatStr);
+};
+
+/**
  * Kiểm tra sản phẩm mới (Ví dụ: trong vòng 3 ngày kể từ khi tạo)
  */
 export const isNewProduct = (createDate) => {

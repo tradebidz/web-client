@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import LoadingModal from '../../components/common/LoadingModal';
 import EditDescriptionModal from '../../components/product/EditDescriptionModal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
+import RatingModal from '../../components/common/RatingModal';
 import { formatCurrency, formatTimeLeft } from '../../utils/format';
-import { FaBoxOpen, FaEye, FaGavel, FaPen } from 'react-icons/fa';
+import { FaBoxOpen, FaEye, FaGavel, FaPen, FaCommentDots, FaCheckCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { getSellingProducts, getSoldProducts, cancelTransaction } from '../../services/userService';
+import { getSellingProducts, getSoldProducts, cancelTransaction, rateSeller as rateTransaction } from '../../services/userService';
 import { getProductById } from '../../services/productService';
 import { useSelector } from 'react-redux';
 
@@ -15,6 +17,10 @@ const MyProducts = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [editingProduct, setEditingProduct] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Modals for Cancellation and Rating
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, productId: null });
+  const [ratingModal, setRatingModal] = useState({ isOpen: false, product: null });
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,7 +42,6 @@ const MyProducts = () => {
           ? await getSellingProducts()
           : await getSoldProducts();
 
-        console.log(data);
         setProducts(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching products:', error);
@@ -70,15 +75,36 @@ const MyProducts = () => {
   };
 
   const handleCancelTransaction = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn hủy giao dịch này? Người thắng sẽ bị đánh giá -1 điểm.")) return;
-
     try {
+      setLoading(true);
       await cancelTransaction(id);
       toast.success("Hủy giao dịch thành công và người thắng đã bị đánh giá -1.");
       const data = await getSoldProducts();
       setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error(error.response?.data?.message || "Hủy giao dịch thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRateWinner = async ({ score, comment }) => {
+    try {
+      setLoading(true);
+      await rateTransaction({
+        productId: ratingModal.product.id,
+        score,
+        comment
+      });
+      toast.success("Đánh giá người thắng thành công!");
+      setRatingModal({ isOpen: false, product: null });
+      // Refresh list
+      const data = await getSoldProducts();
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Đánh giá thất bại");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -205,14 +231,32 @@ const MyProducts = () => {
                             </button>
                           )}
 
-                          {activeTab === 'ended' && item.status === 'SOLD' && (
-                            <button
-                              onClick={() => handleCancelTransaction(item.id)}
-                              className="p-2 text-red-500 hover:bg-red-50 rounded transition text-xs font-bold border border-red-200"
-                              title="Hủy giao dịch"
-                            >
-                              Hủy
-                            </button>
+                          {activeTab === 'ended' && (item.status === 'SOLD' || item.status === 'CANCELLED') && (
+                            <div className="flex gap-2">
+                              {item.is_rated ? (
+                                <span className="flex items-center gap-1 text-green-500 text-xs font-bold px-2 py-1 bg-green-50 rounded italic">
+                                  <FaCheckCircle /> Đã đánh giá
+                                </span>
+                              ) : item.winner_id && (
+                                <button
+                                  onClick={() => setRatingModal({ isOpen: true, product: item })}
+                                  className="px-3 py-1 bg-primary text-white rounded-lg transition text-xs font-bold shadow-sm hover:bg-primary-dark flex items-center gap-1"
+                                  title="Đánh giá người thắng"
+                                >
+                                  <FaCommentDots /> Đánh giá
+                                </button>
+                              )}
+
+                              {item.status === 'SOLD' && (
+                                <button
+                                  onClick={() => setConfirmModal({ isOpen: true, productId: item.id })}
+                                  className="px-3 py-1 bg-white text-red-500 hover:bg-red-50 rounded-lg transition text-xs font-bold border border-red-200"
+                                  title="Hủy giao dịch"
+                                >
+                                  Hủy
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -271,6 +315,27 @@ const MyProducts = () => {
         }}
         product={editingProduct}
         onSuccess={handleEditSuccess}
+      />
+
+      {/* Confirmation Modal for Cancellation */}
+      <ConfirmationModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, productId: null })}
+        onConfirm={() => handleCancelTransaction(confirmModal.productId)}
+        title="Xác nhận hủy giao dịch"
+        message="Bạn có chắc chắn muốn hủy giao dịch này? Người thắng sẽ bị đánh giá -1 điểm tín nhiệm do không hoàn tất thanh toán."
+        confirmText="Đồng ý hủy"
+        cancelText="Quay lại"
+        type="danger"
+      />
+
+      {/* Rating Modal for Seller rating Winner */}
+      <RatingModal
+        isOpen={ratingModal.isOpen}
+        onClose={() => setRatingModal({ isOpen: false, product: null })}
+        onSubmit={handleRateWinner}
+        title="Đánh giá người thắng"
+        targetName={ratingModal.product?.winner?.full_name || 'Người thắng'}
       />
     </div>
   );

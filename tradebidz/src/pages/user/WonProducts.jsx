@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LoadingModal from '../../components/common/LoadingModal';
-import { getWonProducts, rateSeller } from '../../services/userService';
+import RatingModal from '../../components/common/RatingModal';
+import { getWonProducts, rateSeller as rateTransaction } from '../../services/userService';
 import { createOrder } from '../../services/orderService';
 import { createPaymentUrl } from '../../services/paymentService';
 import { formatCurrency } from '../../utils/format';
@@ -14,8 +15,7 @@ const WonProducts = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   // Rating State
-  const [showRateModal, setShowRateModal] = useState(false);
-  const [rateData, setRateData] = useState({ productId: null, sellerId: null, score: 1, comment: '' });
+  const [ratingModal, setRatingModal] = useState({ isOpen: false, product: null });
 
   useEffect(() => {
     fetchWonProducts();
@@ -53,32 +53,24 @@ const WonProducts = () => {
   };
 
   const handleOpenRate = (item) => {
-    // FIX: Lấy ID từ object seller mới
-    setRateData({
-      productId: item.id,
-      sellerId: item.seller?.id || item.seller_id,
-      score: 1,
-      comment: ''
-    });
-    setShowRateModal(true);
+    setRatingModal({ isOpen: true, product: item });
   };
 
-  const handleRateSubmit = async () => {
-    if (!rateData.comment.trim()) {
-      toast.error("Vui lòng nhập nhận xét");
-      return;
-    }
+  const handleRateSubmit = async ({ score, comment }) => {
     try {
-      await rateSeller({
-        productId: rateData.productId,
-        score: rateData.score,
-        comment: rateData.comment
+      setCheckoutLoading(true);
+      await rateTransaction({
+        productId: ratingModal.product.id,
+        score,
+        comment
       });
       toast.success("Đánh giá thành công");
-      setShowRateModal(false);
+      setRatingModal({ isOpen: false, product: null });
       fetchWonProducts();
     } catch (error) {
       toast.error(error.response?.data?.message || "Đánh giá thất bại");
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
@@ -154,7 +146,7 @@ const WonProducts = () => {
                         ) : isPaid ? (
                           <button
                             onClick={() => handleOpenRate(item)}
-                            className="px-4 py-2 bg-secondary text-text-main text-xs font-bold rounded-lg shadow-md transition hover:bg-yellow-400 flex items-center gap-2 ml-auto"
+                            className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md transition hover:bg-primary-dark flex items-center gap-2 ml-auto"
                           >
                             <FaCommentDots /> Đánh giá
                           </button>
@@ -181,56 +173,14 @@ const WonProducts = () => {
       </div>
 
       {/* Rate Modal - Giữ nguyên logic */}
-      {showRateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 fade-in">
-          <div className="bg-white rounded-xl p-6 w-96 shadow-2xl relative">
-            <h3 className="text-xl font-bold text-text-main mb-4 flex items-center gap-2">
-              <FaStar className="text-yellow-500" /> Đánh giá người bán
-            </h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Trải nghiệm</label>
-              <div className="flex gap-4">
-                <button
-                  className={`flex-1 py-3 rounded-lg border-2 flex justify-center items-center gap-2 transition ${rateData.score === 1 ? 'border-green-500 bg-green-50 text-green-600' : 'border-gray-200 text-gray-400'}`}
-                  onClick={() => setRateData({ ...rateData, score: 1 })}
-                >
-                  <FaThumbsUp /> Tốt
-                </button>
-                <button
-                  className={`flex-1 py-3 rounded-lg border-2 flex justify-center items-center gap-2 transition ${rateData.score === -1 ? 'border-red-500 bg-red-50 text-red-600' : 'border-gray-200 text-gray-400'}`}
-                  onClick={() => setRateData({ ...rateData, score: -1 })}
-                >
-                  <FaThumbsDown /> Kém
-                </button>
-              </div>
-            </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">Nhận xét</label>
-              <textarea
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-primary focus:border-primary"
-                rows="3"
-                placeholder="Mô tả trải nghiệm của bạn..."
-                value={rateData.comment}
-                onChange={(e) => setRateData({ ...rateData, comment: e.target.value })}
-              ></textarea>
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowRateModal(false)}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleRateSubmit}
-                className="px-6 py-2 bg-primary text-white rounded-lg font-bold shadow hover:bg-primary-dark"
-              >
-                Gửi đánh giá
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Shared Rating Modal */}
+      <RatingModal
+        isOpen={ratingModal.isOpen}
+        onClose={() => setRatingModal({ isOpen: false, product: null })}
+        onSubmit={handleRateSubmit}
+        title="Đánh giá người bán"
+        targetName={ratingModal.product?.seller?.full_name || 'Người bán'}
+      />
     </div>
   );
 };

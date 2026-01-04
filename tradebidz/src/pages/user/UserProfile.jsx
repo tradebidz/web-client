@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import LoadingModal from "../../components/common/LoadingModal";
-import { FaUserEdit, FaLock, FaSave, FaTimes, FaStar, FaThumbsUp, FaThumbsDown, FaHeart, FaGavel, FaTrophy } from "react-icons/fa";
+import { FaUserEdit, FaLock, FaSave, FaTimes, FaStar, FaThumbsUp, FaThumbsDown, FaHeart, FaGavel, FaTrophy, FaReceipt } from "react-icons/fa";
 import { getCurrentUser, updateCurrentUser, updateProfile, getMyFeedbacks } from "../../services/userService";
 import { updateUser } from "../../redux/slices/authSlice";
 
@@ -212,6 +212,9 @@ const UserProfile = () => {
             </Link>
             <Link to="/won-products" className="block w-full text-left px-6 py-3 flex items-center gap-3 text-gray-600 hover:bg-gray-50 transition">
               <FaTrophy /> Sản phẩm đã thắng
+            </Link>
+            <Link to="/orders" className="block w-full text-left px-6 py-3 flex items-center gap-3 text-gray-600 hover:bg-gray-50 transition">
+              <FaReceipt /> Lịch sử đơn hàng
             </Link>
           </div>
         </div>
