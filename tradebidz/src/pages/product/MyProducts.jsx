@@ -91,7 +91,7 @@ const MyProducts = () => {
           </h1>
           <p className="text-text-light mt-1">Quản lý tin đăng và đơn hàng của bạn.</p>
         </div>
-        <Link to="/post-product" className="px-6 py-2 bg-secondary font-bold rounded-lg shadow hover:bg-primary transition">
+        <Link to="/post-product" className="px-6 py-2 bg-primary-light font-bold rounded-lg shadow hover:bg-primary transition">
           + Đăng bán mới
         </Link>
       </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import ReactQuill from 'react-quill';
 import { FaCloudUploadAlt, FaGavel, FaImage, FaTimes } from 'react-icons/fa';
@@ -9,7 +9,6 @@ import LoadingModal from '../../components/common/LoadingModal';
 import { uploadImage } from '../../services/mediaService';
 import { createProduct } from '../../services/productService';
 import { getCategories } from '../../services/categoryService';
-import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 
 const PostProduct = () => {
@@ -90,7 +89,6 @@ const PostProduct = () => {
   const onSubmit = async (data) => {
     if (!isAuthenticated) {
       toast.error("Vui lòng đăng nhập để đăng bán sản phẩm");
-      navigate('/login');
       return;
     }
 
@@ -115,8 +113,7 @@ const PostProduct = () => {
         description: data.description,
         images: imageUrls,
         is_auto_extend: data.is_auto_extend || false,
-        // Schema: start_time and end_time should be set by backend or calculated
-        // For now, backend will handle these
+        end_time: new Date(data.endTime).toISOString(),
       };
 
       // Create product
@@ -170,7 +167,14 @@ const PostProduct = () => {
                 <select {...register("categoryId", { required: "Vui lòng chọn danh mục" })} className="input-field">
                   <option value="">Chọn danh mục</option>
                   {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    <Fragment key={cat.id}>
+                      <option value={cat.id} className="font-bold bg-gray-50">{cat.name}</option>
+                      {cat.other_categories?.map(sub => (
+                        <option key={sub.id} value={sub.id}>
+                          &nbsp;&nbsp;&nbsp;— {sub.name}
+                        </option>
+                      ))}
+                    </Fragment>
                   ))}
                 </select>
                 {errors.categoryId && <p className="error-text">{errors.categoryId.message}</p>}
@@ -216,6 +220,26 @@ const PostProduct = () => {
                 })} className="input-field" />
                 {errors.buyNowPrice && <p className="error-text">{errors.buyNowPrice.message}</p>}
               </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="label-text">Thời gian kết thúc</label>
+              <input
+                type="datetime-local"
+                {...register("endTime", {
+                  required: "Vui lòng chọn thời gian kết thúc",
+                  validate: (value) => {
+                    const selectedDate = new Date(value);
+                    const now = new Date();
+                    if (selectedDate <= now) {
+                      return "Thời gian kết thúc phải lớn hơn thời gian hiện tại";
+                    }
+                    return true;
+                  }
+                })}
+                className="input-field"
+              />
+              {errors.endTime && <p className="error-text">{errors.endTime.message}</p>}
             </div>
 
             {/* Schema: is_auto_extend field */}

@@ -1,6 +1,6 @@
 import { FaSpinner } from 'react-icons/fa';
 
-const LoadingModal = ({ isOpen, text = "Loading..." }) => {
+const LoadingModal = ({ isOpen, text = "Đang tải..." }) => {
   if (!isOpen) return null;
 
   return (
