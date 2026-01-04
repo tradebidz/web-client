@@ -47,7 +47,7 @@ export const setupResponseInterceptor = (instance) => {
           const response = await axios.post(
             refreshTokenURL,
             { refresh_token: refreshToken, refreshToken },
-            { headers: { 'Content-Type': 'application/json' } }
+            { headers: { Authorization: `Bearer ${refreshToken}` }}
           );
 
           const newAccessToken = response.data?.access_token || response.data?.accessToken;
