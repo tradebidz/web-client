@@ -28,25 +28,25 @@ const AdminLayout = () => {
             <FaChartPie /> Dashboard
           </NavLink>
           <NavLink to="/admin/categories" className={({ isActive }) => isActive ? activeClass : inactiveClass}>
-            <FaThList /> Categories
+            <FaThList /> Danh mục
           </NavLink>
           <NavLink to="/admin/users" className={({ isActive }) => isActive ? activeClass : inactiveClass}>
-            <FaUsers /> Users & Requests
+            <FaUsers /> Người dùng
           </NavLink>
           <NavLink to="/admin/products" className={({ isActive }) => isActive ? activeClass : inactiveClass}>
-            <FaBoxOpen /> Products
+            <FaBoxOpen /> Sản phẩm
           </NavLink>
         </nav>
 
         <div className="border-t border-gray-400 pt-4 space-y-2">
             <Link to="/" className={inactiveClass}>
-                <FaHome /> Back to Home
+                <FaHome /> Trở về trang chủ
             </Link>
             <button 
               onClick={handleLogout} 
               className={`${inactiveClass} w-full font-bold text-left text-red-500 hover:text-white hover:bg-red-500`}
             >
-                <FaSignOutAlt /> Logout
+                <FaSignOutAlt /> Đăng xuất
             </button>
         </div>
       </aside>
