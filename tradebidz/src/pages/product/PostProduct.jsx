@@ -106,7 +106,6 @@ const PostProduct = () => {
       const productData = {
         name: data.name,
         category_id: parseInt(data.categoryId),
-        condition: data.condition,
         start_price: parseFloat(data.startPrice),
         step_price: parseFloat(data.stepPrice),
         buy_now_price: data.buyNowPrice ? parseFloat(data.buyNowPrice) : null,
@@ -178,14 +177,6 @@ const PostProduct = () => {
                   ))}
                 </select>
                 {errors.categoryId && <p className="error-text">{errors.categoryId.message}</p>}
-              </div>
-              <div>
-                <label className="label-text">Tình trạng</label>
-                <select {...register("condition")} className="input-field">
-                  <option value="new">Mới</option>
-                  <option value="used">Đã dùng - Như mới</option>
-                  <option value="old">Đã dùng - Tốt</option>
-                </select>
               </div>
             </div>
           </div>
