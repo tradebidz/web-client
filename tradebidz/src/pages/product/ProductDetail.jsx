@@ -55,7 +55,8 @@ const ProductDetail = () => {
         } else if (productData?.thumbnail) {
           setActiveImage(productData.thumbnail);
         } else {
-          setActiveImage('/placeholder.png');
+          const loremImage = `https://picsum.photos/id/${productData.id}/200/300`;
+          setActiveImage(loremImage);
         }
 
         // Update Redux

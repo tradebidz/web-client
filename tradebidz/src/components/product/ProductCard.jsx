@@ -19,7 +19,8 @@ const ProductCard = ({ product }) => {
     item.product?.id === product.id
   );
 
-  const displayImage = product.thumbnail || product.product_images?.[0]?.url || '/placeholder.png';
+  const loremImage = `https://picsum.photos/id/${product.id}/200/300`;
+  const displayImage = product.thumbnail || product.product_images?.[0]?.url || loremImage;
 
   const displayPrice = product.current_price > 0 ? product.current_price : product.start_price;
   const bidderName = product.current_bidder_name || product.winner?.full_name || product.bids?.[0]?.users?.full_name || 'Chưa có';

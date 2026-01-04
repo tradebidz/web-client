@@ -35,6 +35,8 @@ const MyProducts = () => {
         const data = activeTab === 'active'
           ? await getSellingProducts()
           : await getSoldProducts();
+
+        console.log(data);
         setProducts(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Error fetching products:', error);
@@ -242,8 +244,8 @@ const MyProducts = () => {
               key={pageNum}
               onClick={() => setCurrentPage(pageNum)}
               className={`w-10 h-10 rounded-lg transition text-sm font-medium ${currentPage === pageNum
-                  ? 'bg-primary text-white shadow-md shadow-primary/30'
-                  : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                ? 'bg-primary text-white shadow-md shadow-primary/30'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                 }`}
             >
               {pageNum}
