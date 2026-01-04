@@ -1,26 +1,4 @@
-import axios from 'axios';
-import { store } from '../redux/store';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
-
-const apiClient = axios.create({
-    baseURL: API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-});
-
-// Add interceptor to include token
-apiClient.interceptors.request.use(
-    (config) => {
-        const token = store.getState().auth.accessToken || localStorage.getItem('accessToken');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
+import apiClient from './apiClient';
 
 export const getDashboardStats = async () => {
     const response = await apiClient.get('/admin/dashboard');
@@ -52,13 +30,18 @@ export const deleteCategory = async (id) => {
     return response.data;
 };
 
+export const getAllProducts = async (page = 1, limit = 10) => {
+    const response = await apiClient.get('/admin/products', { params: { page, limit } });
+    return response.data;
+};
+
 export const deleteProduct = async (id) => {
     const response = await apiClient.delete(`/admin/products/${id}`);
     return response.data;
 };
 
-export const getAllUsers = async () => {
-    const response = await apiClient.get('/admin/users');
+export const getAllUsers = async (page = 1, limit = 10) => {
+    const response = await apiClient.get('/admin/users', { params: { page, limit } });
     return response.data;
 };
 

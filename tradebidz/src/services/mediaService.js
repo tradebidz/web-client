@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { store } from '../redux/store';
+import { setupRequestInterceptor, setupResponseInterceptor } from './apiClient';
 
 /**
  * Media Service - Handles image uploads to media-service (Go)
@@ -15,17 +16,9 @@ const mediaServiceClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach token if available
-mediaServiceClient.interceptors.request.use(
-  (config) => {
-    const token = store.getState().auth.accessToken || localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// Apply centralized interceptors for token handling and 401 refresh
+setupRequestInterceptor(mediaServiceClient);
+setupResponseInterceptor(mediaServiceClient);
 
 /**
  * Upload an image file
@@ -35,7 +28,7 @@ mediaServiceClient.interceptors.request.use(
 export const uploadImage = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   const { data } = await mediaServiceClient.post('/media/upload', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',

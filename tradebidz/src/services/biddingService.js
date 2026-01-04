@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { store } from '../redux/store';
+import { setupRequestInterceptor, setupResponseInterceptor } from './apiClient';
 
 /**
  * Bidding Service - Handles bid placement to core-service (Spring Boot)
@@ -15,7 +16,11 @@ const coreServiceClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach user ID from auth state
+// Apply centralized interceptors for token handling and 401 refresh
+setupRequestInterceptor(coreServiceClient);
+setupResponseInterceptor(coreServiceClient);
+
+// Request Interceptor: Attach user ID from auth state (specific to core-service)
 coreServiceClient.interceptors.request.use(
   (config) => {
     const user = store.getState().auth.user;
