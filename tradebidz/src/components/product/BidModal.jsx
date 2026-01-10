@@ -9,16 +9,16 @@ import { useSelector } from 'react-redux';
 
 const BidModal = ({ isOpen, onClose, product }) => {
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
-  
+
   const [step, setStep] = useState('INPUT');
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [eligibility, setEligibility] = useState(null);
   const [suggestedPrice, setSuggestedPrice] = useState(null);
-  
+
   const user = useSelector((state) => state.auth.user);
-  
+
   const isAutoBid = watch('isAutoBid');
 
   useEffect(() => {
@@ -72,6 +72,12 @@ const BidModal = ({ isOpen, onClose, product }) => {
     if (!formData || !product?.id) return;
     setLoading(true);
     try {
+      if (product?.status !== 'ACTIVE') {
+        toast.error('Sản phẩm đã kết thúc đấu giá');
+        onClose();
+        return;
+      }
+
       await placeBid({
         productId: product.id,
         amount: parseFloat(formData.amount),
@@ -81,8 +87,28 @@ const BidModal = ({ isOpen, onClose, product }) => {
       toast.success('Đặt giá thành công!');
       onClose();
     } catch (error) {
-      const message = error.response?.data?.message || 'Đặt giá thất bại';
+      console.error("Bid error:", error);
+      let message = 'Đặt giá thất bại';
+      if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+          message = error.response.data;
+        } else if (error.response.data.message) {
+          message = error.response.data.message;
+        } else if (error.response.data.error) {
+          message = error.response.data.error;
+        }
+      } else if (error.message) {
+        message = error.message;
+      }
+
       toast.error(message);
+
+      // If product status might be outdated
+      if (error.response?.status === 400 && (message.includes('ended') || message.includes('expired') || message.includes('closed'))) {
+        onClose();
+        // Trigger a reload of the page or just let the user know
+        setTimeout(() => window.location.reload(), 2000);
+      }
     } finally {
       setLoading(false);
     }
@@ -100,7 +126,7 @@ const BidModal = ({ isOpen, onClose, product }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-text-main flex items-center gap-2">
-            <FaGavel className="text-primary" /> 
+            <FaGavel className="text-primary" />
             {step === 'CONFIRM' ? 'Xác nhận đấu giá' : 'Đặt giá của bạn'}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
@@ -149,7 +175,7 @@ const BidModal = ({ isOpen, onClose, product }) => {
 
             {/* Giá gợi ý */}
             {suggestedPrice && (
-              <button 
+              <button
                 type="button"
                 onClick={() => setValue('amount', suggestedPrice)}
                 className="w-full bg-primary/5 hover:bg-primary/10 p-3 rounded-lg text-sm border border-primary/20 transition text-left"
@@ -213,8 +239,8 @@ const BidModal = ({ isOpen, onClose, product }) => {
 
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onClose} className="flex-1 py-3 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition">Đóng</button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={eligibility && !eligibility.eligible}
                 className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:bg-primary-dark transition disabled:opacity-50"
               >
@@ -247,14 +273,14 @@ const BidModal = ({ isOpen, onClose, product }) => {
             </div>
 
             <div className="flex gap-3">
-              <button 
-                onClick={() => setStep('INPUT')} 
+              <button
+                onClick={() => setStep('INPUT')}
                 disabled={loading}
                 className="flex-1 py-3 font-bold text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50"
               >
                 Quay lại
               </button>
-              <button 
+              <button
                 onClick={handleConfirmBid}
                 disabled={loading}
                 className="flex-[2] py-3 bg-primary text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:bg-primary-dark flex items-center justify-center gap-2"

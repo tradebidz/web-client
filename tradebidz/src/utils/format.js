@@ -10,9 +10,9 @@ dayjs.locale('vi'); // Thiết lập sử dụng Tiếng Việt toàn cục
  * Ví dụ: 20000000 -> 20.000.000 ₫
  */
 export const formatCurrency = (amount) => {
-  return new Intl.NumberFormat('vi-VN', { 
-    style: 'currency', 
-    currency: 'VND' 
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
   }).format(amount);
 };
 
@@ -23,11 +23,16 @@ export const formatCurrency = (amount) => {
 export const formatTimeLeft = (dateString) => {
   const date = dayjs(dateString);
   const now = dayjs();
+
+  if (date.isBefore(now)) {
+    return "Đã kết thúc";
+  }
+
   const diffHours = date.diff(now, 'hour');
 
   // Nếu còn dưới 72 giờ thì hiển thị dạng "3 giờ tới" hoặc "1 ngày trước"
-  if (diffHours < 72 && diffHours > -72) {
-    return date.fromNow(); 
+  if (diffHours < 72) {
+    return date.fromNow();
   }
   // Nếu quá thời gian trên thì hiển thị định dạng ngày tháng VN
   return date.format('DD/MM/YYYY HH:mm');
@@ -50,5 +55,5 @@ export const isNewProduct = (createDate) => {
   const now = dayjs();
   const created = dayjs(createDate);
   // Trả về true nếu sản phẩm tạo trong vòng 72 giờ qua
-  return now.diff(created, 'hour') < 72; 
+  return now.diff(created, 'hour') < 72;
 };

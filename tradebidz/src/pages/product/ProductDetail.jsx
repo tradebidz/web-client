@@ -48,6 +48,8 @@ const ProductDetail = () => {
         const productData = await getProductById(id);
         setProduct(productData);
 
+        console.log(productData);
+
         // Set first image as active
         if (productData?.product_images?.length > 0) {
           const primaryImg = productData.product_images.find(img => img.is_primary) || productData.product_images[0];
@@ -274,6 +276,10 @@ const ProductDetail = () => {
     product.bids?.[0]?.users?.full_name ||
     'Chưa có';
 
+  // Check if auction is ended by time, even if status is not yet updated
+  const isAuctionEnded = product.end_time && new Date(product.end_time) < new Date();
+  const canBid = product?.status === 'ACTIVE' && !isAuctionEnded;
+
   return (
     <div className="container mx-auto pb-12 fade-in">
       {/* Breadcrumb */}
@@ -405,12 +411,12 @@ const ProductDetail = () => {
           <div className="flex gap-4">
             <button
               onClick={handlePlaceBid}
-              disabled={product?.status !== 'ACTIVE' || isSeller}
-              className="flex-1 bg-primary-light text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 disabled:scale-100"
+              disabled={!canBid}
+              className="flex-1 bg-primary-light text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:shadow-none"
             >
-              <FaGavel /> ĐẤU GIÁ
+              <FaGavel /> {isAuctionEnded ? 'ĐÃ KẾT THÚC' : 'ĐẤU GIÁ'}
             </button>
-            {buyNowPrice && product?.status === 'ACTIVE' && !isSeller && (
+            {buyNowPrice && canBid && !isSeller && (
               <button
                 onClick={() => setIsBuyNowModalOpen(true)}
                 className="flex-1 bg-primary text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2"
@@ -632,54 +638,58 @@ const ProductDetail = () => {
             </div>
           )}
         </div>
-      </div>
+      </div >
 
       {/* Ban Modal */}
-      {isBanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-            <h3 className="text-lg font-bold text-red-600 mb-4">Từ chối người mua?</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Bạn có chắc chắn muốn từ chối <strong>{bidderToBan?.bidder_name}</strong>?
-              Họ sẽ không thể đấu giá sản phẩm này nữa, và các lượt đấu giá của họ sẽ bị hủy.
-            </p>
-            <label className="block text-sm font-medium mb-1">Lý do (bắt buộc)</label>
-            <input
-              type="text"
-              className="w-full border rounded p-2 mb-4"
-              placeholder="Ví dụ: Không thanh toán..."
-              value={banReason}
-              onChange={(e) => setBanReason(e.target.value)}
-            />
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => { setIsBanModalOpen(false); setBidderToBan(null); }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleBanBidder}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold"
-              >
-                Xác nhận từ chối
-              </button>
+      {
+        isBanModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+              <h3 className="text-lg font-bold text-red-600 mb-4">Từ chối người mua?</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Bạn có chắc chắn muốn từ chối <strong>{bidderToBan?.bidder_name}</strong>?
+                Họ sẽ không thể đấu giá sản phẩm này nữa, và các lượt đấu giá của họ sẽ bị hủy.
+              </p>
+              <label className="block text-sm font-medium mb-1">Lý do (bắt buộc)</label>
+              <input
+                type="text"
+                className="w-full border rounded p-2 mb-4"
+                placeholder="Ví dụ: Không thanh toán..."
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+              />
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => { setIsBanModalOpen(false); setBidderToBan(null); }}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleBanBidder}
+                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold"
+                >
+                  Xác nhận từ chối
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* --- BOTTOM SECTION: RELATED PRODUCTS [cite: 62] --- */}
-      {relatedProducts.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-bold mb-6 text-text-main">Sản phẩm liên quan</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {relatedProducts.map((item) => (
-              <ProductCard key={item.id} product={item} />
-            ))}
-          </div>
-        </section>
-      )}
+      {
+        relatedProducts.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-bold mb-6 text-text-main">Sản phẩm liên quan</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+              {relatedProducts.map((item) => (
+                <ProductCard key={item.id} product={item} />
+              ))}
+            </div>
+          </section>
+        )
+      }
 
       {/* Bid Modal */}
       <BidModal
@@ -699,7 +709,7 @@ const ProductDetail = () => {
         cancelText="Hủy"
         type="warning"
       />
-    </div>
+    </div >
   );
 };
 
