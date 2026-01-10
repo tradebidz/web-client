@@ -256,6 +256,26 @@ const MyProducts = () => {
                                   Hủy
                                 </button>
                               )}
+
+                              {/* Pending Payment UI */}
+                              {item.status !== 'SOLD' && item.status !== 'CANCELLED' && item.winner_id && (
+                                <div className="flex flex-col gap-1 items-end">
+                                  <span className="text-orange-500 text-xs font-bold flex items-center gap-1">
+                                    <FaExclamationCircle /> Chờ thanh toán
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {/* Countdown Logic: Assume 24h payment window */}
+                                    Còn {formatTimeLeft(new Date(new Date(item.end_time).getTime() + 24 * 60 * 60 * 1000))}
+                                  </span>
+                                  <button
+                                    onClick={() => setConfirmModal({ isOpen: true, productId: item.id })}
+                                    className="px-3 py-1 bg-white text-red-500 hover:bg-red-50 rounded-lg transition text-xs font-bold border border-red-200 mt-1"
+                                    title="Hủy giao dịch"
+                                  >
+                                    Hủy
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
