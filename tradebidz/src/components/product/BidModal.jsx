@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 import { formatCurrency } from '../../utils/format';
 import { useSelector } from 'react-redux';
 
-const BidModal = ({ isOpen, onClose, product }) => {
+const BidModal = ({ isOpen, onClose, product, onBidSuccess }) => {
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
 
   const [step, setStep] = useState('INPUT');
@@ -85,6 +85,7 @@ const BidModal = ({ isOpen, onClose, product }) => {
         maxAmount: formData.maxAmount ? parseFloat(formData.maxAmount) : null,
       });
       toast.success('Đặt giá thành công!');
+      if (onBidSuccess) onBidSuccess();
       onClose();
     } catch (error) {
       console.error("Bid error:", error);

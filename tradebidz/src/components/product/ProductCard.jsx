@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FaGavel, FaClock, FaEye, FaUser, FaHeart, FaRegHeart } from 'react-icons/fa';
-import { formatCurrency, formatTimeLeft } from '../../utils/format';
+import { formatCurrency, formatTimeLeft, maskName } from '../../utils/format';
 import { useDispatch, useSelector } from 'react-redux';
 import { toggleWatchlist } from '../../services/userService';
 import { addToWatchlist, removeFromWatchlist } from '../../redux/slices/watchlistSlice';
@@ -24,7 +24,7 @@ const ProductCard = ({ product }) => {
 
   const displayPrice = product.current_price > 0 ? product.current_price : product.start_price;
   const bidderName = product.current_bidder_name || product.winner?.full_name || product.bids?.[0]?.users?.full_name || 'Chưa có';
-  const displayBidder = bidderName !== 'Chưa có' ? bidderName : 'Chưa có';
+  const displayBidder = bidderName !== 'Chưa có' ? maskName(bidderName) : 'Chưa có';
 
   // Format Date
   const postDate = product.created_at ? new Date(product.created_at).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' }) : '';

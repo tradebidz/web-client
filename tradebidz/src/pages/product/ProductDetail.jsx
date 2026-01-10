@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { FaGavel, FaClock, FaUser, FaStore, FaHeart, FaHistory } from 'react-icons/fa';
 import { formatCurrency, formatTimeLeft } from '../../utils/format';
@@ -9,6 +9,8 @@ import ConfirmModal from '../../components/common/ConfirmModal';
 import BidModal from '../../components/product/BidModal';
 import { getProductById, getBidHistory, getTopEnding, getSellerBids, banBidder, createQuestion, answerQuestion } from '../../services/productService';
 import { buyNow } from '../../services/biddingService';
+import { createOrder } from '../../services/orderService';
+import { createPaymentUrl } from '../../services/paymentService';
 import { toggleWatchlist, getMyWatchlist } from '../../services/userService';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useSelector, useDispatch } from 'react-redux';
@@ -41,16 +43,18 @@ const ProductDetail = () => {
   const { isConnected } = useWebSocket(parseInt(id));
 
   // Fetch product data
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setLoading(true);
-        const productData = await getProductById(id);
-        setProduct(productData);
+  const fetchProductData = useCallback(async () => {
+    try {
+      // Don't set loading to true here to avoid flashing UI on refresh
+      // setLoading(true); 
+      const productData = await getProductById(id);
+      setProduct(productData);
 
-        console.log(productData);
+      console.log(productData);
 
-        // Set first image as active
+      // Set first image as active if not already set or correct
+      // (Simple check to avoid resetting active image while browsing, but for refresh it's okay)
+      if (!activeImage) {
         if (productData?.product_images?.length > 0) {
           const primaryImg = productData.product_images.find(img => img.is_primary) || productData.product_images[0];
           setActiveImage(primaryImg.url);
@@ -60,62 +64,62 @@ const ProductDetail = () => {
           const loremImage = `https://picsum.photos/id/${productData.id}/200/300`;
           setActiveImage(loremImage);
         }
+      }
 
-        // Update Redux
-        dispatch(setCurrentProduct(productData));
+      // Update Redux
+      dispatch(setCurrentProduct(productData));
 
-        // Fetch bid history (check if seller for full history)
-        let history = [];
-        // Note: 'user' from outer scope might be stale in closure if not in dependency, 
-        // but 'fetchProduct' is defined inside useEffect so it captures current 'user'.
-        // However, we need to verify if user.id matches seller_id
-        if (isAuthenticated && user?.id === productData.seller_id) {
-          try {
-            history = await getSellerBids(id);
-          } catch (e) {
-            console.error("Failed to fetch seller bids", e);
-            history = await getBidHistory(id);
-          }
-        } else {
+      // Fetch bid history (check if seller for full history)
+      let history = [];
+      if (isAuthenticated && user?.id === productData.seller_id) {
+        try {
+          history = await getSellerBids(id);
+        } catch (e) {
+          console.error("Failed to fetch seller bids", e);
           history = await getBidHistory(id);
         }
-
-        setBidHistory(history || []);
-        dispatch(setProductBids(history || []));
-
-        // Check watchlist status if authenticated
-        if (isAuthenticated) {
-          try {
-            const watchlist = await getMyWatchlist();
-            const inWatchlist = watchlist.some(item =>
-              item.productId === parseInt(id) || item.product?.id === parseInt(id)
-            );
-            setIsInWatchlist(inWatchlist);
-          } catch (error) {
-            console.error('Error checking watchlist:', error);
-          }
-        }
-
-        // Fetch related products (top ending)
-        try {
-          const related = await getTopEnding();
-          setRelatedProducts(related?.slice(0, 5) || []);
-        } catch (error) {
-          console.error('Error fetching related products:', error);
-        }
-      } catch (error) {
-        console.error('Error fetching product:', error);
-        toast.error('Lỗi khi tải thông tin sản phẩm');
-        navigate('/products');
-      } finally {
-        setLoading(false);
+      } else {
+        history = await getBidHistory(id);
       }
-    };
 
-    if (id) {
-      fetchProduct();
+      setBidHistory(history || []);
+      dispatch(setProductBids(history || []));
+
+      // Check watchlist status if authenticated
+      if (isAuthenticated) {
+        try {
+          const watchlist = await getMyWatchlist();
+          const inWatchlist = watchlist.some(item =>
+            item.productId === parseInt(id) || item.product?.id === parseInt(id)
+          );
+          setIsInWatchlist(inWatchlist);
+        } catch (error) {
+          console.error('Error checking watchlist:', error);
+        }
+      }
+
+      // Fetch related products (top ending)
+      try {
+        const related = await getTopEnding();
+        setRelatedProducts(related?.slice(0, 5) || []);
+      } catch (error) {
+        console.error('Error fetching related products:', error);
+      }
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      toast.error('Lỗi khi tải thông tin sản phẩm');
+      navigate('/products');
+    } finally {
+      setLoading(false);
     }
-  }, [id, isAuthenticated, dispatch, navigate, user]);
+  }, [id, isAuthenticated, user, dispatch, navigate, activeImage]);
+
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      fetchProductData();
+    }
+  }, [id, fetchProductData]);
 
   // Listen to Redux updates from WebSocket
   const currentProduct = useSelector((state) => state.products.currentProduct);
@@ -195,6 +199,24 @@ const ProductDetail = () => {
       toast.error(error.response?.data || 'Lỗi khi mua ngay');
     } finally {
       setBuyingNow(false);
+    }
+  };
+
+  const handleCheckout = async () => {
+    try {
+      setLoading(true); // Re-use loading state or create a new one if needed
+      const order = await createOrder(parseInt(id));
+      const { url } = await createPaymentUrl(order.id);
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error("Failed to generate payment URL");
+      }
+    } catch (error) {
+      console.error("Checkout failed:", error);
+      toast.error(error.response?.data?.message || "Lỗi thanh toán");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -378,7 +400,7 @@ const ProductDetail = () => {
               <p className="font-medium">
                 {sellerName}
                 <span className="text-xs text-text-light ml-2">
-                  (Đánh giá: {sellerRating}%)
+                  (Đánh giá: {typeof sellerRating === 'number' ? sellerRating.toFixed(1) : parseFloat(sellerRating).toFixed(1)}%)
                 </span>
               </p>
             </div>
@@ -416,6 +438,15 @@ const ProductDetail = () => {
             >
               <FaGavel /> {isAuctionEnded ? 'ĐÃ KẾT THÚC' : 'ĐẤU GIÁ'}
             </button>
+            {/* Winner Payment Button */}
+            {isAuctionEnded && product.winner?.id === user?.id && (
+              <button
+                onClick={handleCheckout}
+                className="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-green-600/30 transition transform active:scale-95 flex justify-center items-center gap-2"
+              >
+                <FaGavel /> THANH TOÁN NGAY
+              </button>
+            )}
             {buyNowPrice && canBid && !isSeller && (
               <button
                 onClick={() => setIsBuyNowModalOpen(true)}
@@ -696,6 +727,7 @@ const ProductDetail = () => {
         isOpen={showBidModal}
         onClose={() => setShowBidModal(false)}
         product={product}
+        onBidSuccess={fetchProductData}
       />
 
       {/* Buy Now Confirmation Modal */}

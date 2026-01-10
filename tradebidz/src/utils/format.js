@@ -57,3 +57,15 @@ export const isNewProduct = (createDate) => {
   // Trả về true nếu sản phẩm tạo trong vòng 72 giờ qua
   return now.diff(created, 'hour') < 72;
 };
+
+/**
+ * Che một phần tên thành **** Tên
+ * Ví dụ: "Nguyễn Văn A" -> "**** A"
+ */
+export const maskName = (fullName) => {
+  if (!fullName) return '---';
+  if (fullName.startsWith('****')) return fullName;
+  const parts = fullName.trim().split(' ');
+  const lastName = parts[parts.length - 1];
+  return `**** ${lastName}`;
+};
