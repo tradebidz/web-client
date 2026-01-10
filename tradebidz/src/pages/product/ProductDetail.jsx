@@ -154,6 +154,8 @@ const ProductDetail = () => {
       return;
     }
 
+    console.log(user);
+
     if (user && (user.rating_score || user.ratingScore || 0) < 80) {
       toast.error('Bạn cần điểm tín nhiệm từ 80% trở lên để được phép đấu giá');
       return;
@@ -302,6 +304,10 @@ const ProductDetail = () => {
   const isAuctionEnded = product.end_time && new Date(product.end_time) < new Date();
   const canBid = product?.status === 'ACTIVE' && !isAuctionEnded;
 
+  // Determine effective winner ID: explicit winner field -> relation -> top bidder
+  const effectiveWinnerId = product.winner_id || product.winner?.id || product.bids?.[0]?.bidder_id;
+  const isWinner = user?.id && effectiveWinnerId === user.id;
+
   return (
     <div className="container mx-auto pb-12 fade-in">
       {/* Breadcrumb */}
@@ -439,7 +445,7 @@ const ProductDetail = () => {
               <FaGavel /> {isAuctionEnded ? 'ĐÃ KẾT THÚC' : 'ĐẤU GIÁ'}
             </button>
             {/* Winner Payment Button */}
-            {isAuctionEnded && (product.winner?.id === user?.id || (!product.winner_id && product.bids?.[0]?.bidder_id === user?.id)) && (
+            {isAuctionEnded && isWinner && (
               <button
                 onClick={handleCheckout}
                 className="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-green-600/30 transition transform active:scale-95 flex justify-center items-center gap-2"

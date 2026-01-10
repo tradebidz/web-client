@@ -143,25 +143,26 @@ const MyBidding = () => {
                       {/* Action */}
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <Link
-                            to={`/product/${product.id}`}
-                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isWinning
-                              ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                              : 'bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30'
-                              }`}
-                            title={isWinning ? "Xem chi tiết" : "Đấu giá ngay!"}
-                          >
-                            <FaExternalLinkAlt className="text-xs" />
-                          </Link>
                           {/* Payment Button if won and ended */}
-                          {product.end_time && new Date(product.end_time) < new Date() && isWinning && (
+                          {product.end_time && new Date(product.end_time) < new Date() && isWinning ? (
                             <button
                               onClick={() => handleCheckout(product.id)}
-                              className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 text-xs font-bold shadow-sm transition-colors"
+                              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 text-sm font-bold shadow-sm transition-colors w-full"
                               title="Thanh toán ngay"
                             >
-                              Thanh toán
+                              Thanh toán ngay
                             </button>
+                          ) : (
+                            <Link
+                              to={`/product/${product.id}`}
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isWinning
+                                ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                : 'bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30'
+                                }`}
+                              title={isWinning ? "Xem chi tiết" : "Đấu giá ngay!"}
+                            >
+                              <FaExternalLinkAlt className="text-xs" />
+                            </Link>
                           )}
                         </div>
                       </td>
@@ -181,7 +182,7 @@ const MyBidding = () => {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };
 
