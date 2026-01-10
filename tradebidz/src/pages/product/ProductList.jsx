@@ -325,7 +325,7 @@ const ProductList = () => {
 
           {/* Product Grid */}
           {products.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
               {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -378,8 +378,8 @@ const ProductList = () => {
                     key={pageNum}
                     onClick={() => handleFilterChange('page', pageNum)}
                     className={`w-10 h-10 rounded-lg transition text-sm font-medium ${pagination.page === pageNum
-                        ? 'bg-primary text-white shadow-md shadow-primary/30'
-                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                      ? 'bg-primary text-white shadow-md shadow-primary/30'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                       }`}
                   >
                     {pageNum}

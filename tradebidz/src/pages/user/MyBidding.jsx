@@ -4,6 +4,8 @@ import LoadingModal from '../../components/common/LoadingModal';
 import { formatCurrency, formatTimeLeft } from '../../utils/format';
 import { FaGavel, FaCheckCircle, FaExclamationCircle, FaExternalLinkAlt } from 'react-icons/fa';
 import { getActiveBids } from '../../services/userService';
+import { createOrder } from '../../services/orderService';
+import { createPaymentUrl } from '../../services/paymentService';
 import { useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 
@@ -14,6 +16,22 @@ const MyBidding = () => {
   const [loading, setLoading] = useState(true);
   const { isAuthenticated, user } = useSelector((state) => state.auth); // Lấy thêm user để so sánh winner
   const navigate = useNavigate();
+
+  const handleCheckout = async (productId) => {
+    try {
+      // setLoading(true); // Có thể thêm loading state cục bộ nếu cần
+      const order = await createOrder(productId);
+      const { url } = await createPaymentUrl(order.id);
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error("Failed to generate payment URL");
+      }
+    } catch (error) {
+      console.error("Checkout failed:", error);
+      toast.error(error.response?.data?.message || "Lỗi thanh toán");
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -124,16 +142,28 @@ const MyBidding = () => {
 
                       {/* Action */}
                       <td className="p-4 text-center">
-                        <Link
-                          to={`/product/${product.id}`}
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isWinning
+                        <div className="flex items-center justify-center gap-2">
+                          <Link
+                            to={`/product/${product.id}`}
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isWinning
                               ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                               : 'bg-primary text-white hover:bg-primary-dark shadow-md shadow-primary/30'
-                            }`}
-                          title={isWinning ? "Xem chi tiết" : "Đấu giá ngay!"}
-                        >
-                          <FaExternalLinkAlt className="text-xs" />
-                        </Link>
+                              }`}
+                            title={isWinning ? "Xem chi tiết" : "Đấu giá ngay!"}
+                          >
+                            <FaExternalLinkAlt className="text-xs" />
+                          </Link>
+                          {/* Payment Button if won and ended */}
+                          {product.end_time && new Date(product.end_time) < new Date() && isWinning && (
+                            <button
+                              onClick={() => handleCheckout(product.id)}
+                              className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 text-xs font-bold shadow-sm transition-colors"
+                              title="Thanh toán ngay"
+                            >
+                              Thanh toán
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

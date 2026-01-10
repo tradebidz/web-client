@@ -58,7 +58,7 @@ const ProductCard = ({ product }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group flex flex-col h-full overflow-hidden relative">
       {/* --- Image Section --- */}
-      <div className="relative h-48 overflow-hidden shrink-0 bg-gray-50">
+      <div className="relative h-40 sm:h-48 overflow-hidden shrink-0 bg-gray-50">
         <Link to={`/product/${product.id}`} className="block h-full w-full">
           <img
             src={displayImage}
@@ -143,12 +143,12 @@ const ProductCard = ({ product }) => {
         </div>
 
         {/* Card Footer */}
-        <div className="mt-auto pt-3 border-t border-dashed border-gray-100 flex justify-between items-center">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md">
-            <FaClock size={10} />
-            <span>{formatTimeLeft(product.end_time)}</span>
+        <div className="mt-auto pt-3 border-t border-dashed border-gray-100 flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md max-w-full">
+            <FaClock size={10} className="shrink-0" />
+            <span className="truncate">{formatTimeLeft(product.end_time)}</span>
           </div>
-          <div className="text-[10px] text-gray-400">
+          <div className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">
             {postDate}
           </div>
         </div>

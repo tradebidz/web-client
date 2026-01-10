@@ -316,7 +316,7 @@ const ProductDetail = () => {
 
         {/* Left: Gallery */}
         <div>
-          <div className="h-96 rounded-2xl overflow-hidden shadow-sm border border-gray-200 mb-4 bg-white relative">
+          <div className="h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden shadow-sm border border-gray-200 mb-4 bg-white relative">
             <img
               src={activeImage}
               alt={product.name}
@@ -430,7 +430,7 @@ const ProductDetail = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <button
               onClick={handlePlaceBid}
               disabled={!canBid}
@@ -439,7 +439,7 @@ const ProductDetail = () => {
               <FaGavel /> {isAuctionEnded ? 'ĐÃ KẾT THÚC' : 'ĐẤU GIÁ'}
             </button>
             {/* Winner Payment Button */}
-            {isAuctionEnded && product.winner?.id === user?.id && (
+            {isAuctionEnded && (product.winner?.id === user?.id || (!product.winner_id && product.bids?.[0]?.bidder_id === user?.id)) && (
               <button
                 onClick={handleCheckout}
                 className="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-green-600/30 transition transform active:scale-95 flex justify-center items-center gap-2"
@@ -713,7 +713,7 @@ const ProductDetail = () => {
         relatedProducts.length > 0 && (
           <section>
             <h2 className="text-2xl font-bold mb-6 text-text-main">Sản phẩm liên quan</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
               {relatedProducts.map((item) => (
                 <ProductCard key={item.id} product={item} />
               ))}
