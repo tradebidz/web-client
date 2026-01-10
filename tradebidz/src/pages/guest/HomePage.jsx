@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import ProductCard from '../../components/product/ProductCard';
+import ProductSkeleton from '../../components/product/ProductSkeleton';
 import { FaFire, FaClock, FaDollarSign, FaArrowRight } from 'react-icons/fa';
 import { FaArrowUpRightFromSquare } from 'react-icons/fa6';
 import { getTopEnding, getTopBidding, getTopPrice } from '../../services/productService';
@@ -51,7 +52,11 @@ const HomePage = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Đang tải...</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          {[...Array(5)].map((_, index) => (
+            <ProductSkeleton key={index} />
+          ))}
+        </div>
       ) : products.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {products.map((product) => (
