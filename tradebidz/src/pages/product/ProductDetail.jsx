@@ -52,20 +52,6 @@ const ProductDetail = () => {
 
       console.log(productData);
 
-      // Set first image as active if not already set or correct
-      // (Simple check to avoid resetting active image while browsing, but for refresh it's okay)
-      if (!activeImage) {
-        if (productData?.product_images?.length > 0) {
-          const primaryImg = productData.product_images.find(img => img.is_primary) || productData.product_images[0];
-          setActiveImage(primaryImg.url);
-        } else if (productData?.thumbnail) {
-          setActiveImage(productData.thumbnail);
-        } else {
-          const loremImage = `https://picsum.photos/id/${productData.id}/200/300`;
-          setActiveImage(loremImage);
-        }
-      }
-
       // Update Redux
       dispatch(setCurrentProduct(productData));
 
@@ -112,7 +98,7 @@ const ProductDetail = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, isAuthenticated, user, dispatch, navigate, activeImage]);
+  }, [id, isAuthenticated, user, dispatch, navigate]);
 
   useEffect(() => {
     if (id) {
