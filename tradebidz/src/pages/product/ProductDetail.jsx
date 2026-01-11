@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { FaGavel, FaClock, FaUser, FaStore, FaHeart, FaHistory } from 'react-icons/fa';
+import { FaGavel, FaClock, FaUser, FaStore, FaHeart, FaHistory, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { formatCurrency, formatTimeLeft } from '../../utils/format';
 import ProductCard from '../../components/product/ProductCard';
 import { toast } from 'react-toastify';
@@ -12,6 +12,7 @@ import { buyNow } from '../../services/biddingService';
 import { createOrder } from '../../services/orderService';
 import { createPaymentUrl } from '../../services/paymentService';
 import { toggleWatchlist, getMyWatchlist } from '../../services/userService';
+import { addToWatchlist, removeFromWatchlist } from '../../redux/slices/watchlistSlice';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useSelector, useDispatch } from 'react-redux';
 import { setCurrentProduct, updateProduct } from '../../redux/slices/productSlice';
@@ -23,6 +24,9 @@ const ProductDetail = () => {
   const dispatch = useDispatch();
   const [product, setProduct] = useState(null);
   const [activeImage, setActiveImage] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isSlideshowPaused, setIsSlideshowPaused] = useState(false);
+  const [imageOpacity, setImageOpacity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [bidHistory, setBidHistory] = useState([]);
   const [showBidModal, setShowBidModal] = useState(false);
@@ -38,6 +42,7 @@ const ProductDetail = () => {
   const [buyingNow, setBuyingNow] = useState(false);
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const user = useSelector((state) => state.auth.user);
+  const watchlist = useSelector(state => state.watchlist.watchlist) || [];
 
   // Subscribe to WebSocket updates for this product
   const { isConnected } = useWebSocket(parseInt(id));
@@ -50,23 +55,44 @@ const ProductDetail = () => {
       const productData = await getProductById(id);
       setProduct(productData);
 
-      console.log(productData);
-
       // Update Redux
       dispatch(setCurrentProduct(productData));
 
       // Fetch bid history (check if seller for full history)
-      let history = [];
+      let history = productData.bids;
       if (isAuthenticated && user?.id === productData.seller_id) {
         try {
           history = await getSellerBids(id);
+          console.log(history);
         } catch (e) {
           console.error("Failed to fetch seller bids", e);
           history = await getBidHistory(id);
         }
-      } else {
-        history = await getBidHistory(id);
-      }
+
+        setBidHistory(history || []);
+        dispatch(setProductBids(history || []));
+
+        // Check watchlist status if authenticated
+        if (isAuthenticated) {
+          try {
+            setIsInWatchlist(watchlist.some(item => item.id === parseInt(id)));
+          } catch (error) {
+            console.error('Error checking watchlist:', error);
+          }
+        }
+
+        // Fetch related products (top ending)
+        try {
+          const related = await getTopEnding();
+          setRelatedProducts(related?.slice(0, 5) || []);
+        } catch (error) {
+          console.error('Error fetching product:', error);
+          toast.error('Lỗi khi tải thông tin sản phẩm');
+          navigate('/products');
+        } finally {
+          setLoading(false);
+        }
+      } 
 
       setBidHistory(history || []);
       dispatch(setProductBids(history || []));
@@ -107,27 +133,81 @@ const ProductDetail = () => {
     }
   }, [id, fetchProductData]);
 
+  // Initialize active image when product changes
+  useEffect(() => {
+    if (product) {
+      const images = product.product_images || [];
+      if (images.length > 0) {
+        const primaryImg = images.find(img => img.is_primary) || images[0];
+        const primaryIndex = images.findIndex(img => img.id === primaryImg.id);
+        setActiveImage(primaryImg.url);
+        setCurrentImageIndex(primaryIndex >= 0 ? primaryIndex : 0);
+        setImageOpacity(1);
+      } else if (product.thumbnail) {
+        setActiveImage(product.thumbnail);
+        setCurrentImageIndex(0);
+        setImageOpacity(1);
+      }
+    }
+  }, [product?.id]); // Only reinitialize when product ID changes
+
+  // Helper function to change image with fade effect
+  const changeImageWithFade = useCallback((newIndex) => {
+    if (!product?.product_images || !product.product_images[newIndex]) return;
+    setImageOpacity(0); // Fade out
+    setTimeout(() => {
+      setCurrentImageIndex(newIndex);
+      setActiveImage(product.product_images[newIndex].url);
+      setImageOpacity(1); // Fade in
+    }, 300); // Wait for fade-out to complete
+  }, [product]);
+
+  // Auto-advance slideshow
+  useEffect(() => {
+    if (!product || !product.product_images || product.product_images.length <= 1) return;
+    if (isSlideshowPaused) return;
+
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => {
+        const nextIndex = (prevIndex + 1) % product.product_images.length;
+        // Use fade effect for smooth transition
+        setImageOpacity(0);
+        setTimeout(() => {
+          setCurrentImageIndex(nextIndex);
+          setActiveImage(product.product_images[nextIndex].url);
+          setImageOpacity(1);
+        }, 300);
+        return nextIndex;
+      });
+    }, 4000); // Change image every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [product, isSlideshowPaused, changeImageWithFade]);
+
   // Listen to Redux updates from WebSocket
   const currentProduct = useSelector((state) => state.products.currentProduct);
-  const prevBidCountRef = useRef(null);
+  const prevCurrentPriceRef = useRef(null);
 
   useEffect(() => {
     if (currentProduct && currentProduct.id === parseInt(id)) {
       // Check for new bids to show toast
-      if (prevBidCountRef.current !== null && currentProduct.bid_count > prevBidCountRef.current) {
-        toast.info(`Có giá mới! Giá hiện tại: ${formatCurrency(currentProduct.current_price || currentProduct.start_price)}`);
+      if (prevCurrentPriceRef.current !== null && currentProduct.currentPrice > 0 && currentProduct.currentPrice > prevCurrentPriceRef.current) {
+        toast.info(`Có giá mới! Giá hiện tại: ${formatCurrency(currentProduct.currentPrice > 0 ? currentProduct.currentPrice : currentProduct.startPrice)}`);
       }
-      prevBidCountRef.current = currentProduct.bid_count || 0;
+      prevCurrentPriceRef.current = currentProduct.currentPrice > 0 ? currentProduct.currentPrice : currentProduct.startPrice;
 
       setProduct(currentProduct);
       // Update active image if product images changed (Schema: product_images relation)
       if (currentProduct.product_images && currentProduct.product_images.length > 0) {
         const primaryImg = currentProduct.product_images.find(img => img.is_primary) || currentProduct.product_images[0];
-        if (primaryImg?.url && primaryImg.url !== activeImage) {
+        const primaryIndex = currentProduct.product_images.findIndex(img => img.id === primaryImg.id);
+        if (primaryImg?.url) {
           setActiveImage(primaryImg.url);
+          setCurrentImageIndex(primaryIndex >= 0 ? primaryIndex : 0);
         }
       } else if (currentProduct.thumbnail && currentProduct.thumbnail !== activeImage) {
         setActiveImage(currentProduct.thumbnail);
+        setCurrentImageIndex(0);
       }
     }
     // eslint-disable-next-line
@@ -160,7 +240,13 @@ const ProductDetail = () => {
     try {
       await toggleWatchlist(parseInt(id));
       setIsInWatchlist(!isInWatchlist);
-      toast.success(isInWatchlist ? 'Đã bỏ theo dõi' : 'Đã thêm vào danh sách theo dõi');
+      if (isInWatchlist) {
+        dispatch(removeFromWatchlist(parseInt(id)));
+        toast.success('Đã bỏ theo dõi');
+      } else {
+        dispatch(addToWatchlist(product));
+        toast.success('Đã thêm vào danh sách theo dõi');
+      }
     } catch (error) {
       toast.error('Lỗi cập nhật danh sách theo dõi');
     }
@@ -308,20 +394,83 @@ const ProductDetail = () => {
 
         {/* Left: Gallery */}
         <div>
-          <div className="h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden shadow-sm border border-gray-200 mb-4 bg-white relative">
-            <img
-              src={activeImage}
-              alt={product.name}
-              className="w-full h-full object-contain"
-            />
+          <div 
+            className="h-64 sm:h-80 md:h-96 rounded-2xl overflow-hidden shadow-sm border border-gray-200 mb-4 bg-white relative group"
+            onMouseEnter={() => setIsSlideshowPaused(true)}
+            onMouseLeave={() => setIsSlideshowPaused(false)}
+          >
+            {/* Main Image with fade transition */}
+            <div className="relative w-full h-full">
+              {product.product_images && product.product_images.length > 0 ? (
+                <>
+                  <img
+                    key={activeImage}
+                    src={activeImage}
+                    alt={product.name}
+                    className="w-full h-full object-contain transition-opacity duration-300 ease-in-out"
+                    style={{ opacity: imageOpacity }}
+                  />
+                  {/* Navigation Buttons */}
+                  {product.product_images.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => {
+                          const prevIndex = (currentImageIndex - 1 + product.product_images.length) % product.product_images.length;
+                          changeImageWithFade(prevIndex);
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                        aria-label="Previous image"
+                      >
+                        <FaChevronLeft />
+                      </button>
+                      <button
+                        onClick={() => {
+                          const nextIndex = (currentImageIndex + 1) % product.product_images.length;
+                          changeImageWithFade(nextIndex);
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                        aria-label="Next image"
+                      >
+                        <FaChevronRight />
+                      </button>
+                      {/* Image Indicators */}
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+                        {product.product_images.map((img, index) => (
+                          <button
+                            key={img.id}
+                            onClick={() => {
+                              changeImageWithFade(index);
+                            }}
+                            className={`h-2 rounded-full transition-all duration-200 ${
+                              index === currentImageIndex 
+                                ? 'bg-white w-8' 
+                                : 'bg-white/50 w-2 hover:bg-white/75'
+                            }`}
+                            aria-label={`Go to image ${index + 1}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <img
+                  src={activeImage || product.thumbnail}
+                  alt={product.name}
+                  className="w-full h-full object-contain"
+                />
+              )}
+            </div>
           </div>
           {/* Thumbnails - Schema: product_images relation */}
           {product.product_images && product.product_images.length > 0 && (
             <div className="flex gap-4 overflow-x-auto pb-2">
-              {product.product_images.map((img) => (
+              {product.product_images.map((img, index) => (
                 <button
                   key={img.id}
-                  onClick={() => setActiveImage(img.url)}
+                  onClick={() => {
+                    changeImageWithFade(index);
+                  }}
                   className={`w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${activeImage === img.url
                     ? 'border-primary ring-2 ring-primary/30'
                     : 'border-gray-200 hover:border-gray-300'
@@ -584,10 +733,11 @@ const ProductDetail = () => {
                   <div className="flex justify-between items-start">
                     <div className="bg-gray-50 p-3 rounded-lg w-full">
                       <p className="font-semibold text-sm text-gray-700 mb-1">
-                        Hỏi: {q.question}
+                      <span className="font-bold text-text-main">{q.users?.full_name || 'Người mua'}: </span> 
+                      {q.question}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {q.users?.full_name || 'Người dùng'} hỏi vào {new Date(q.created_at).toLocaleDateString('vi-VN')}
+                        {new Date(q.created_at).toLocaleDateString('vi-VN')}
                       </p>
                     </div>
                   </div>
@@ -595,7 +745,7 @@ const ProductDetail = () => {
                   {q.answer ? (
                     <div className="bg-blue-50 p-3 rounded-lg ml-8 mt-2 border-l-4 border-blue-400">
                       <p className="font-semibold text-sm text-gray-700 mb-1">
-                        Đáp: {q.answer}
+                          {q.answer}
                       </p>
                       <p className="text-xs text-gray-400">
                         Trả lời vào {new Date(q.answered_at).toLocaleDateString('vi-VN')}
@@ -657,7 +807,7 @@ const ProductDetail = () => {
                 ></textarea>
                 <button
                   type="submit"
-                  className="mt-2 bg-secondary text-text-main font-bold py-2 px-4 rounded-lg text-sm hover:bg-primary transition"
+                  className="mt-2 bg-primary-light text-white font-bold py-2 px-4 rounded-lg text-sm hover:bg-primary transition"
                 >
                   Gửi câu hỏi
                 </button>
