@@ -48,6 +48,8 @@ const UserProfile = () => {
       try {
         const response = await getCurrentUser();
 
+        console.log(response);
+
         const mapped = {
           id: response.id,
           email: response.email,
@@ -61,6 +63,8 @@ const UserProfile = () => {
         };
 
         setProfile(mapped);
+
+        console.log(mapped);
 
         reset({
           fullName: mapped.fullName,
@@ -235,7 +239,7 @@ const UserProfile = () => {
                   ["Xác thực", profile.isVerified ? "Đã xác thực" : "Chưa xác thực"],
                   [
                     "Điểm tín nhiệm",
-                    profile.ratingCount > 0
+                    profile.ratingScore != null && profile.ratingScore > 0
                       ? `${profile.ratingScore.toFixed(1)}%`
                       : "Chưa có đánh giá",
                   ],
