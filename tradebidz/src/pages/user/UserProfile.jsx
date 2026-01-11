@@ -235,7 +235,9 @@ const UserProfile = () => {
                   ["Xác thực", profile.isVerified ? "Đã xác thực" : "Chưa xác thực"],
                   [
                     "Điểm tín nhiệm",
-                    `${profile.ratingScore} điểm`,
+                    profile.ratingCount > 0
+                      ? `${profile.ratingScore.toFixed(1)}%`
+                      : "Chưa có đánh giá",
                   ],
                   [
                     "Thành viên từ",
