@@ -26,6 +26,8 @@ const Header = () => {
         }
       };
       fetchWatchlist();
+    } else {
+      dispatch(setWatchlist([]));
     }
   }, [isAuthenticated, dispatch]);
 

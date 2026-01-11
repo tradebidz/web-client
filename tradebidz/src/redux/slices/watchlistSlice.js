@@ -18,7 +18,7 @@ const watchlistSlice = createSlice({
     addToWatchlist: (state, action) => {
       // Check if already in watchlist
       const exists = state.watchlist.some(
-        item => item.productId === action.payload.productId
+        item => item.id === action.payload.id
       );
       if (!exists) {
         state.watchlist.push(action.payload);
@@ -26,7 +26,7 @@ const watchlistSlice = createSlice({
     },
     removeFromWatchlist: (state, action) => {
       state.watchlist = state.watchlist.filter(
-        item => item.productId !== action.payload
+        item => item.id !== action.payload
       );
     },
     setLoading: (state, action) => {

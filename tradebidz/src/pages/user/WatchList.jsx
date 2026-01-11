@@ -5,7 +5,8 @@ import { FaHeartBroken, FaHeart } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { getMyWatchlist, toggleWatchlist } from '../../services/userService';
-import { useSelector } from 'react-redux';
+import { removeFromWatchlist } from '../../redux/slices/watchlistSlice';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 
 const WatchList = () => {
@@ -14,7 +15,8 @@ const WatchList = () => {
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, productId: null });
   const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   const navigate = useNavigate();
-
+  const dispatch = useDispatch();
+  
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
@@ -29,7 +31,7 @@ const WatchList = () => {
         setProducts(watchlist || []);
       } catch (error) {
         console.error('Error fetching watchlist:', error);
-        toast.error('Failed to load watchlist');
+        toast.error('Lỗi khi tải danh sách theo dõi');
       } finally {
         setLoading(false);
       }
@@ -45,10 +47,11 @@ const WatchList = () => {
   const confirmRemove = async () => {
     try {
       await toggleWatchlist(confirmModal.productId);
+      dispatch(removeFromWatchlist(confirmModal.productId));
       setProducts(products.filter(p => p.id !== confirmModal.productId));
-      toast.success("Item removed from Watchlist");
+      toast.success("Đã bỏ theo dõi");
     } catch (error) {
-      toast.error('Failed to remove from watchlist');
+      toast.error('Lỗi khi bỏ theo dõi');
     } finally {
       setConfirmModal({ isOpen: false, productId: null });
     }
