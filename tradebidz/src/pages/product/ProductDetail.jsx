@@ -425,10 +425,14 @@ const ProductDetail = () => {
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <button
               onClick={handlePlaceBid}
-              disabled={!canBid}
-              className="flex-1 bg-primary-light text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-primary/30 transition transform active:scale-95 flex justify-center items-center gap-2 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:shadow-none"
+              disabled={!canBid || isSeller}
+              className={`flex-1 font-bold py-3 px-6 rounded-xl shadow-lg transition transform active:scale-95 flex justify-center items-center gap-2 
+                ${isSeller
+                  ? 'bg-gray-400 text-white cursor-not-allowed shadow-none'
+                  : 'bg-primary-light text-white shadow-primary/30'} 
+                disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed`}
             >
-              <FaGavel /> {isAuctionEnded ? 'ĐÃ KẾT THÚC' : 'ĐẤU GIÁ'}
+              <FaGavel /> {isSeller ? 'BẠN LÀ NGƯỜI BÁN' : (isAuctionEnded ? 'ĐÃ KẾT THÚC' : 'ĐẤU GIÁ')}
             </button>
             {/* Winner Payment Button */}
             {isAuctionEnded && isWinner && (
