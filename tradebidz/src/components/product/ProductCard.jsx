@@ -8,15 +8,11 @@ import { toast } from 'react-toastify';
 
 const ProductCard = ({ product }) => {
   const dispatch = useDispatch();
-  const { isAuthenticated } = useSelector(state => state.auth);
+  const { isAuthenticated, user } = useSelector(state => state.auth);
   const watchlist = useSelector(state => state.watchlist.watchlist) || [];
-
   // Check if product is in watchlist
   const isWatched = Array.isArray(watchlist) && watchlist.some(item =>
-    item.product_id === product.id ||
-    item.productId === product.id ||
-    item.products?.id === product.id ||
-    item.product?.id === product.id
+    item.id === product.id
   );
 
   const loremImage = `https://picsum.photos/id/${product.id}/200/300`;
@@ -28,6 +24,19 @@ const ProductCard = ({ product }) => {
 
   // Format Date
   const postDate = product.created_at ? new Date(product.created_at).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' }) : '';
+
+  // Check if product is newly posted (within N minutes, default 30 minutes)
+  const NEW_PRODUCT_THRESHOLD_MINUTES = 30;
+  const isNewProduct = product.created_at && (() => {
+    const createdTime = new Date(product.created_at).getTime();
+    const now = new Date().getTime();
+    const diffMinutes = (now - createdTime) / (1000 * 60);
+    return diffMinutes <= NEW_PRODUCT_THRESHOLD_MINUTES && product.status === 'ACTIVE';
+  })();
+
+  // Check if current user is the highest bidder
+  const effectiveWinnerId = product.winner_id || product.winner?.id || product.bids?.[0]?.bidder_id;
+  const isUserHighestBidder = isAuthenticated && user?.id && effectiveWinnerId === user.id;
 
   const handleToggleWatchlist = async (e) => {
     e.preventDefault(); // Prevent navigation
@@ -44,7 +53,7 @@ const ProductCard = ({ product }) => {
         dispatch(removeFromWatchlist(product.id));
         toast.success('Đã bỏ theo dõi');
       } else {
-        dispatch(addToWatchlist({ productId: product.id, product }));
+        dispatch(addToWatchlist(product));
         toast.success('Đã thêm vào danh sách theo dõi');
       }
     } catch (error) {
@@ -56,7 +65,13 @@ const ProductCard = ({ product }) => {
   const statusText = { SOLD: 'ĐÃ BÁN', EXPIRED: 'KẾT THÚC' }[product.status] || product.status;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group flex flex-col h-full overflow-hidden relative">
+    <div className={`bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col h-full overflow-hidden relative ${
+      isUserHighestBidder 
+        ? 'border-2 !bg-primary-light/40 border-blue-400 shadow-blue-200' 
+        : isNewProduct
+        ? 'border-2 border-green-400 !bg-green-500/20 shadow-green-200'
+        : 'border border-gray-100'
+    }`}>
       {/* --- Image Section --- */}
       <div className="relative h-40 sm:h-48 overflow-hidden shrink-0 bg-gray-50">
         <Link to={`/product/${product.id}`} className="block h-full w-full">
@@ -78,9 +93,15 @@ const ProductCard = ({ product }) => {
             </span>
           )}
 
-          {product.is_new && product.status === 'ACTIVE' && (
+          {isNewProduct && product.status === 'ACTIVE' && (
             <span className="px-2 py-1 rounded text-[10px] font-bold bg-green-500 text-white shadow-sm animate-pulse w-fit">
               MỚI
+            </span>
+          )}
+
+          {isUserHighestBidder && product.status === 'ACTIVE' && (
+            <span className="px-2 py-1 rounded text-[10px] font-bold bg-blue-500 text-white shadow-sm w-fit">
+              ĐANG GIỮ GIÁ
             </span>
           )}
         </div>
@@ -136,9 +157,9 @@ const ProductCard = ({ product }) => {
             <FaEye className="text-blue-300" />
             <span>{product.view_count || 0} xem</span>
           </div>
-          <div className="flex items-center gap-1 col-span-2 text-gray-400">
-            <FaUser className="text-gray-300" />
-            <span className="truncate">Người giữ giá: <span className="text-gray-600">{displayBidder}</span></span>
+          <div className={`flex items-center gap-1 col-span-2 ${isUserHighestBidder ? 'text-blue-600 font-semibold' : 'text-gray-400'}`}>
+            <FaUser className={isUserHighestBidder ? 'text-blue-500' : 'text-gray-300'} />
+            <span className="truncate">Người giữ giá: <span className={isUserHighestBidder ? 'text-blue-700 font-bold' : 'text-gray-600'}>{displayBidder}</span></span>
           </div>
         </div>
 

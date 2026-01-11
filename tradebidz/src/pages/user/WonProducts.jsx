@@ -28,7 +28,7 @@ const WonProducts = () => {
       setProducts(data || []);
     } catch (error) {
       console.error("Failed to load won products:", error);
-      toast.error("Failed to load won products");
+      toast.error("Lỗi: Không thể tải sản phẩm đã thắng");
     } finally {
       setLoading(false);
     }
@@ -42,11 +42,11 @@ const WonProducts = () => {
       if (url) {
         window.location.href = url;
       } else {
-        toast.error("Failed to generate payment URL");
+        toast.error("Lỗi: Không thể tạo liên kết thanh toán");
       }
     } catch (error) {
       console.error("Checkout failed:", error);
-      toast.error(error.response?.data?.message || "Lỗi thanh toán");
+      toast.error(error.response?.data?.message || "Lỗi: Không thể tạo liên kết thanh toán");
     } finally {
       setCheckoutLoading(false);
     }
@@ -75,16 +75,27 @@ const WonProducts = () => {
   };
 
   const getStatusBadge = (item) => {
-    // Backend mới chưa trả về orders/feedbacks trong list này (cần update backend nếu muốn hiển thị chính xác status)
-    // Code này viết an toàn để fallback
     const order = item.orders?.[0];
     const isRated = item.feedbacks?.length > 0;
-    const isPaid = order && ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'succeeded', 'paid'].includes(order.status);
+    
+    if (!order) {
+      return <span className="badge bg-yellow-100 text-yellow-800 flex items-center gap-1 w-fit px-2 py-1 rounded-full text-xs font-bold"><FaMoneyBillWave /> Chưa thanh toán</span>;
+    }
 
-    if (isRated) return <span className="badge bg-green-100 text-green-800 flex items-center gap-1 w-fit px-2 py-1 rounded-full text-xs font-bold"><FaCheckCircle /> Hoàn tất</span>;
-    if (isPaid) return <span className="badge bg-blue-100 text-blue-800 flex items-center gap-1 w-fit px-2 py-1 rounded-full text-xs font-bold"><FaTruck /> Đã thanh toán</span>;
+    // Rating chỉ cho phép khi DELIVERED hoặc COMPLETED
+    if (isRated || order.status === 'DELIVERED' || order.status === 'COMPLETED') {
+      return <span className="badge bg-green-100 text-green-800 flex items-center gap-1 w-fit px-2 py-1 rounded-full text-xs font-bold"><FaCheckCircle /> {isRated ? 'Hoàn tất' : (order.status === 'DELIVERED' ? 'Đã nhận hàng' : 'Hoàn tất')}</span>;
+    }
+    
+    if (order.status === 'SHIPPED') {
+      return <span className="badge bg-blue-100 text-blue-800 flex items-center gap-1 w-fit px-2 py-1 rounded-full text-xs font-bold"><FaTruck /> Đang giao hàng</span>;
+    }
+    
+    if (order.payment_status === 'PAID' || order.status === 'PAID') {
+      return <span className="badge bg-green-100 text-green-700 flex items-center gap-1 w-fit px-2 py-1 rounded-full text-xs font-bold"><FaCheckCircle /> Đã thanh toán</span>;
+    }
 
-    // Mặc định hiển thị Unpaid nếu chưa có info
+    // Mặc định hiển thị Unpaid
     return <span className="badge bg-yellow-100 text-yellow-800 flex items-center gap-1 w-fit px-2 py-1 rounded-full text-xs font-bold"><FaMoneyBillWave /> Chưa thanh toán</span>;
   };
 
@@ -116,7 +127,9 @@ const WonProducts = () => {
                 {products.map((item) => {
                   const order = item.orders?.[0];
                   const isRated = item.feedbacks?.length > 0;
-                  const isPaid = order && ['PAID', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'succeeded', 'paid'].includes(order.status);
+                  const canPay = !order || (order.payment_status !== 'PAID' && order.status !== 'CANCELLED');
+                  // Chỉ cho phép rating khi đã DELIVERED hoặc COMPLETED
+                  const canRate = order && (order.status === 'DELIVERED' || order.status === 'COMPLETED') && !isRated;
 
                   return (
                     <tr key={item.id} className="hover:bg-gray-50">
@@ -143,20 +156,27 @@ const WonProducts = () => {
                       <td className="p-4 text-right">
                         {isRated ? (
                           <span className="text-gray-400 text-xs italic">Đã đánh giá</span>
-                        ) : isPaid ? (
+                        ) : canRate ? (
                           <button
                             onClick={() => handleOpenRate(item)}
                             className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md transition hover:bg-primary-dark flex items-center gap-2 ml-auto"
                           >
                             <FaCommentDots /> Đánh giá
                           </button>
-                        ) : (
+                        ) : canPay ? (
                           <button
                             onClick={() => handleCheckout(item.id)}
                             className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md transition hover:bg-primary-dark"
                           >
                             Thanh toán ngay
                           </button>
+                        ) : (
+                          <Link
+                            to="/order-history"
+                            className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-md transition hover:bg-blue-700 inline-block"
+                          >
+                            Xem chi tiết đơn hàng
+                          </Link>
                         )}
                       </td>
                     </tr>

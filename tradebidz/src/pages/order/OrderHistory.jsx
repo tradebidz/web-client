@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { FaBoxOpen, FaClock, FaCheckCircle, FaTimesCircle, FaCreditCard, FaReceipt, FaCommentDots, FaArrowRight } from 'react-icons/fa';
-import { getMyOrders } from '../../services/orderService';
+import { FaBoxOpen, FaClock, FaCheckCircle, FaTimesCircle, FaCreditCard, FaReceipt, FaCommentDots, FaArrowRight, FaFileInvoice, FaTruck, FaCheckDouble } from 'react-icons/fa';
+import { getMyOrders, confirmDelivery } from '../../services/orderService';
 import { rateSeller as rateTransaction } from '../../services/userService';
 import { createPaymentUrl } from '../../services/paymentService';
 import { formatCurrency, formatDate } from '../../utils/format';
 import LoadingModal from '../../components/common/LoadingModal';
 import RatingModal from '../../components/common/RatingModal';
+import OrderCompletionWizard from '../../components/order/OrderCompletionWizard';
 import { toast } from 'react-toastify';
 
 const OrderHistory = () => {
@@ -15,6 +16,7 @@ const OrderHistory = () => {
     const [loading, setLoading] = useState(true);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [ratingModal, setRatingModal] = useState({ isOpen: false, order: null });
+    const [wizardModal, setWizardModal] = useState({ isOpen: false, order: null });
     const currentUser = useSelector((state) => state.auth.user);
 
     useEffect(() => {
@@ -51,6 +53,19 @@ const OrderHistory = () => {
         }
     };
 
+    const handleConfirmDelivery = async (orderId) => {
+        try {
+            setCheckoutLoading(true);
+            await confirmDelivery(orderId);
+            toast.success("Đã xác nhận nhận hàng thành công!");
+            fetchOrders();
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Xác nhận nhận hàng thất bại");
+        } finally {
+            setCheckoutLoading(false);
+        }
+    };
+
     const handleRateSubmit = async ({ score, comment }) => {
         try {
             setCheckoutLoading(true);
@@ -74,7 +89,9 @@ const OrderHistory = () => {
             order: {
                 PENDING: { color: 'bg-yellow-100 text-yellow-700', icon: <FaClock />, label: 'Chờ duyệt' },
                 PAID: { color: 'bg-green-100 text-green-700', icon: <FaCheckCircle />, label: 'Đã thanh toán' },
-                SHIPPED: { color: 'bg-blue-100 text-blue-700', icon: <FaBoxOpen />, label: 'Đang giao' },
+                SHIPPED: { color: 'bg-blue-100 text-blue-700', icon: <FaTruck />, label: 'Đang giao' },
+                DELIVERED: { color: 'bg-purple-100 text-purple-700', icon: <FaCheckDouble />, label: 'Đã nhận hàng' },
+                COMPLETED: { color: 'bg-green-100 text-green-700', icon: <FaCheckDouble />, label: 'Hoàn tất' },
                 CANCELLED: { color: 'bg-red-100 text-red-700', icon: <FaTimesCircle />, label: 'Đã hủy' },
                 default: { color: 'bg-gray-100 text-gray-700', icon: <FaClock />, label: status }
             },
@@ -127,9 +144,27 @@ const OrderHistory = () => {
                             <tbody className="divide-y divide-gray-100 text-sm">
                                 {orders.map((order) => {
                                     const isBuyer = order.buyer_id === currentUser?.id;
+                                    const isSeller = order.seller_id === currentUser?.id;
+                                    
+                                    // Payment flow
                                     const canPay = isBuyer && order.payment_status !== 'PAID' && order.status !== 'CANCELLED';
+                                    
+                                    // Order completion wizard flow
+                                    // Buyer: After payment, upload receipt
+                                    const canUploadReceipt = isBuyer && order.payment_status === 'PAID' && !order.payment_receipt_url;
+                                    // Seller: After buyer uploaded receipt, upload shipping tracking
+                                    const canUploadShipping = isSeller && order.payment_receipt_url && !order.shipping_tracking_code;
+                                    const canCompleteOrder = canUploadReceipt || canUploadShipping;
+                                    
+                                    // View tracking (after shipping tracking uploaded)
+                                    const canViewTracking = (isBuyer && order.payment_receipt_url) || (isSeller && order.payment_receipt_url);
+                                    
+                                    // Delivery confirmation (only buyer, when order is SHIPPED)
+                                    const canConfirmDelivery = isBuyer && order.status === 'SHIPPED';
+                                    
+                                    // Rating (only after DELIVERED/COMPLETED and not rated yet)
                                     const isRated = order.products?.feedbacks?.length > 0;
-                                    const canRate = (order.payment_status === 'PAID' || order.status === 'CANCELLED') && !isRated;
+                                    const canRate = (order.status === 'DELIVERED' || order.status === 'COMPLETED') && !isRated;
 
                                     return (
                                         <tr key={order.id} className="hover:bg-gray-50/50 transition">
@@ -158,27 +193,45 @@ const OrderHistory = () => {
                                             <td className="p-4 font-bold text-primary">{formatCurrency(order.amount)}</td>
                                             <td className="p-4">
                                                 <div className="flex flex-col gap-1">
-                                                    {order.status === 'PAID' && order.payment_status === 'PAID' ? (
-                                                        getStatusBadge(order.status, 'order')
-                                                    ) : (
-                                                        <>
-                                                            {getStatusBadge(order.status, 'order')}
-                                                            {getStatusBadge(order.payment_status, 'payment')}
-                                                        </>
-                                                    )}
+                                                    {getStatusBadge(order.status, 'order')}
+                                                    {order.payment_status !== 'PAID' && getStatusBadge(order.payment_status, 'payment')}
                                                 </div>
                                             </td>
                                             <td className="p-4">
-                                                <div className="flex justify-center gap-2">
-                                                    {/* <Link to={`/product/${order.product_id}`} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition" title="Xem sản phẩm">
-                                                        <FaArrowRight size={14} />
-                                                    </Link> */}
+                                                <div className="flex flex-col items-center justify-center gap-2 flex-wrap">
                                                     {canPay && (
                                                         <button
                                                             onClick={() => handlePayment(order.id)}
                                                             className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg hover:bg-primary-dark transition shadow-sm"
                                                         >
                                                             Thanh toán
+                                                        </button>
+                                                    )}
+                                                    {canCompleteOrder && (
+                                                        <button
+                                                            onClick={() => setWizardModal({ isOpen: true, order })}
+                                                            className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition shadow-sm flex items-center gap-1"
+                                                            title="Hoàn tất đơn hàng"
+                                                        >
+                                                            <FaFileInvoice /> Hoàn tất
+                                                        </button>
+                                                    )}
+                                                    {canViewTracking && !canCompleteOrder && (
+                                                        <button
+                                                            onClick={() => setWizardModal({ isOpen: true, order })}
+                                                            className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center gap-1"
+                                                            title="Xem tracking đơn hàng"
+                                                        >
+                                                            <FaTruck /> Theo dõi
+                                                        </button>
+                                                    )}
+                                                    {canConfirmDelivery && (
+                                                        <button
+                                                            onClick={() => handleConfirmDelivery(order.id)}
+                                                            className="px-3 py-1 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 transition shadow-sm flex items-center gap-1"
+                                                            title="Xác nhận đã nhận hàng"
+                                                        >
+                                                            <FaCheckDouble /> Xác nhận nhận hàng
                                                         </button>
                                                     )}
                                                     {canRate && (
@@ -224,6 +277,15 @@ const OrderHistory = () => {
                         ? ratingModal.order?.seller?.full_name
                         : ratingModal.order?.buyer?.full_name
                 }
+            />
+
+            {/* Order Completion Wizard */}
+            <OrderCompletionWizard
+                isOpen={wizardModal.isOpen}
+                onClose={() => setWizardModal({ isOpen: false, order: null })}
+                order={wizardModal.order}
+                userRole={wizardModal.order?.buyer_id === currentUser?.id ? 'BUYER' : 'SELLER'}
+                onUpdate={fetchOrders}
             />
         </div>
     );

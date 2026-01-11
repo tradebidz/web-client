@@ -5,7 +5,7 @@ import EditDescriptionModal from '../../components/product/EditDescriptionModal'
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import RatingModal from '../../components/common/RatingModal';
 import { formatCurrency, formatTimeLeft } from '../../utils/format';
-import { FaBoxOpen, FaEye, FaGavel, FaPen, FaCommentDots, FaCheckCircle } from 'react-icons/fa';
+import { FaBoxOpen, FaEye, FaGavel, FaPen, FaCommentDots, FaCheckCircle, FaTruck, FaFileInvoice, FaClock, FaCheckDouble, FaTimesCircle, FaExclamationCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { getSellingProducts, getSoldProducts, cancelTransaction, rateSeller as rateTransaction } from '../../services/userService';
 import { getProductById } from '../../services/productService';
@@ -231,51 +231,106 @@ const MyProducts = () => {
                             </button>
                           )}
 
-                          {activeTab === 'ended' && (item.status === 'SOLD' || item.status === 'CANCELLED') && (
-                            <div className="flex gap-2">
-                              {item.is_rated ? (
-                                <span className="flex items-center gap-1 text-green-500 text-xs font-bold px-2 py-1 bg-green-50 rounded italic">
-                                  <FaCheckCircle /> Đã đánh giá
-                                </span>
-                              ) : item.winner_id && (
-                                <button
-                                  onClick={() => setRatingModal({ isOpen: true, product: item })}
-                                  className="px-3 py-1 bg-primary text-white rounded-lg transition text-xs font-bold shadow-sm hover:bg-primary-dark flex items-center gap-1"
-                                  title="Đánh giá người thắng"
-                                >
-                                  <FaCommentDots /> Đánh giá
-                                </button>
-                              )}
+                          {activeTab === 'ended' && (
+                            <div className="flex flex-col gap-2 items-end">
+                              {/* Order Status Display */}
+                              {item.orders && item.orders.length > 0 && (() => {
+                                const order = item.orders[0];
+                                const orderStatus = order.status;
+                                const paymentStatus = order.payment_status;
+                                
+                                return (
+                                  <div className="flex flex-col gap-1 items-end text-xs">
+                                    {/* Payment Status */}
+                                    {paymentStatus === 'UNPAID' && (
+                                      <span className="text-orange-500 font-bold flex items-center gap-1">
+                                        <FaClock /> Chờ thanh toán
+                                      </span>
+                                    )}
+                                    {paymentStatus === 'PAID' && !order.payment_receipt_url && (
+                                      <span className="text-blue-500 font-bold flex items-center gap-1">
+                                        <FaFileInvoice /> Chờ đăng hóa đơn
+                                      </span>
+                                    )}
+                                    {order.payment_receipt_url && !order.shipping_tracking_code && (
+                                      <span className="text-purple-500 font-bold flex items-center gap-1">
+                                        <FaTruck /> Chờ đăng vận đơn
+                                      </span>
+                                    )}
+                                    {order.shipping_tracking_code && orderStatus === 'SHIPPED' && (
+                                      <span className="text-blue-600 font-bold flex items-center gap-1">
+                                        <FaTruck /> Đang vận chuyển
+                                      </span>
+                                    )}
+                                    {orderStatus === 'DELIVERED' || orderStatus === 'COMPLETED' ? (
+                                      <span className="text-green-600 font-bold flex items-center gap-1">
+                                        <FaCheckDouble /> Đã nhận hàng
+                                      </span>
+                                    ) : null}
+                                    {orderStatus === 'CANCELLED' && (
+                                      <span className="text-red-500 font-bold flex items-center gap-1">
+                                        <FaTimesCircle /> Đã hủy
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                              
+                              {/* Actions */}
+                              {(() => {
+                                const order = item.orders?.[0];
+                                const orderStatus = order?.status;
+                                const paymentStatus = order?.payment_status;
+                                const canRate = order && (orderStatus === 'DELIVERED' || orderStatus === 'COMPLETED') && !item.is_rated;
+                                const canCancel = item.status === 'SOLD' && orderStatus !== 'CANCELLED';
+                                
+                                return (
+                                  <div className="flex gap-2">
+                                    {item.is_rated ? (
+                                      <span className="flex items-center gap-1 text-green-500 text-xs font-bold px-2 py-1 bg-green-50 rounded italic">
+                                        <FaCheckCircle /> Đã đánh giá
+                                      </span>
+                                    ) : canRate ? (
+                                      <button
+                                        onClick={() => setRatingModal({ isOpen: true, product: item })}
+                                        className="px-3 py-1 bg-primary text-white rounded-lg transition text-xs font-bold shadow-sm hover:bg-primary-dark flex items-center gap-1"
+                                        title="Đánh giá người thắng"
+                                      >
+                                        <FaCommentDots /> Đánh giá
+                                      </button>
+                                    ) : null}
 
-                              {item.status === 'SOLD' && (
-                                <button
-                                  onClick={() => setConfirmModal({ isOpen: true, productId: item.id })}
-                                  className="px-3 py-1 bg-white text-red-500 hover:bg-red-50 rounded-lg transition text-xs font-bold border border-red-200"
-                                  title="Hủy giao dịch"
-                                >
-                                  Hủy
-                                </button>
-                              )}
+                                    {canCancel && (
+                                      <button
+                                        onClick={() => setConfirmModal({ isOpen: true, productId: item.id })}
+                                        className="px-3 py-1 bg-white text-red-500 hover:bg-red-50 rounded-lg transition text-xs font-bold border border-red-200"
+                                        title="Hủy giao dịch"
+                                      >
+                                        Hủy
+                                      </button>
+                                    )}
 
-                              {/* Pending Payment UI */}
-                              {item.status !== 'SOLD' && item.status !== 'CANCELLED' && item.winner_id && (
-                                <div className="flex flex-col gap-1 items-end">
-                                  <span className="text-orange-500 text-xs font-bold flex items-center gap-1">
-                                    <FaExclamationCircle /> Chờ thanh toán
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    {/* Countdown Logic: Assume 24h payment window */}
-                                    Còn {formatTimeLeft(new Date(new Date(item.end_time).getTime() + 24 * 60 * 60 * 1000))}
-                                  </span>
-                                  <button
-                                    onClick={() => setConfirmModal({ isOpen: true, productId: item.id })}
-                                    className="px-3 py-1 bg-white text-red-500 hover:bg-red-50 rounded-lg transition text-xs font-bold border border-red-200 mt-1"
-                                    title="Hủy giao dịch"
-                                  >
-                                    Hủy
-                                  </button>
-                                </div>
-                              )}
+                                    {/* Pending Payment UI */}
+                                    {!order && item.winner_id && item.status !== 'SOLD' && item.status !== 'CANCELLED' && (
+                                      <div className="flex flex-col gap-1 items-end">
+                                        <span className="text-orange-500 text-xs font-bold flex items-center gap-1">
+                                          <FaExclamationCircle /> Chờ thanh toán
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          Còn {formatTimeLeft(new Date(new Date(item.end_time).getTime() + 24 * 60 * 60 * 1000))}
+                                        </span>
+                                        <button
+                                          onClick={() => setConfirmModal({ isOpen: true, productId: item.id })}
+                                          className="px-3 py-1 bg-white text-red-500 hover:bg-red-50 rounded-lg transition text-xs font-bold border border-red-200 mt-1"
+                                          title="Hủy giao dịch"
+                                        >
+                                          Hủy
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
                         </div>

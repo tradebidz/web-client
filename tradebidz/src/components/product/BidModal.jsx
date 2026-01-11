@@ -117,9 +117,9 @@ const BidModal = ({ isOpen, onClose, product, onBidSuccess }) => {
 
   if (!isOpen) return null;
 
-  const currentPrice = parseFloat(product?.current_price || product?.start_price || 0);
+  const currentPrice = parseFloat(product?.current_price > 0 ? product?.current_price : product?.start_price || 0);
   const stepPrice = parseFloat(product?.step_price || 0);
-  const minBidAmount = currentPrice + stepPrice;
+  const minBidAmount = product?.current_price > 0 ? currentPrice + stepPrice : currentPrice;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
